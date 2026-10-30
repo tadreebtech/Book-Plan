@@ -3,8 +3,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import override
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import APIException, ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 from rest_framework.response import Response
 
 from apps.bookings.serializers import BookingCreateSerializer, BookingReadSerializer
@@ -14,7 +13,17 @@ from apps.bookings.services import cancel_booking, create_booking, list_user_boo
 @method_decorator(override("en"), name="dispatch")
 class BookingViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     serializer_class = BookingReadSerializer
-    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _parse_booking_id(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError) as exc:
+            raise NotFound("Booking not found.") from exc
+
+    def get_object(self):
+        self._parse_booking_id(self.kwargs.get(self.lookup_url_kwarg or self.lookup_field))
+        return super().get_object()
 
     def get_queryset(self):
         return list_user_bookings(user=self.request.user)
@@ -35,7 +44,7 @@ class BookingViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
 
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request, pk=None):
-        booking = cancel_booking(user=request.user, booking_id=pk)
+        booking = cancel_booking(user=request.user, booking_id=self._parse_booking_id(pk))
         return Response(BookingReadSerializer(booking).data)
 
     def handle_exception(self, exc):
@@ -55,14 +64,14 @@ class BookingViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
             details = {}
 
         if isinstance(exc, ValidationError):
-            code = "validation_error"
+            code = "VALIDATION_ERROR"
         elif isinstance(exc, Http404):
-            code = "not_found"
+            code = "NOT_FOUND"
         elif isinstance(exc, APIException):
             codes = exc.get_codes()
-            code = codes if isinstance(codes, str) else "api_error"
+            code = codes.upper() if isinstance(codes, str) else "API_ERROR"
         else:
-            code = "error"
+            code = "ERROR"
 
         response.data = {"error": {"code": code, "message": message, "details": details}}
         return response

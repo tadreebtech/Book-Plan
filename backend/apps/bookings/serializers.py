@@ -38,6 +38,7 @@ class BookingReadSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_status(self, obj: Booking) -> str:
+        # Effective status is derived from the end time, without changing the stored status.
         if obj.status == BookingStatus.CANCELLED:
             return BookingStatus.CANCELLED
         if obj.status == BookingStatus.COMPLETED or obj.end_at <= timezone.now():

@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import Booking, Resource
 
+
 @admin.register(Resource)
 class ResourceAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "kind", "capacity", "is_active")

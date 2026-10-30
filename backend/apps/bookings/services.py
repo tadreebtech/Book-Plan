@@ -1,9 +1,11 @@
 from datetime import datetime
 
 from django.db import IntegrityError, transaction
+from django.db.models import QuerySet
 from django.utils import timezone
 from rest_framework.exceptions import NotFound
 
+from apps.accounts.models import User
 from apps.bookings.exceptions import BookingConflict, BookingValidationError, ResourceUnavailable
 from apps.bookings.models import Booking, BookingStatus, Resource
 
@@ -16,7 +18,7 @@ def _is_overlap_constraint_error(exc: IntegrityError) -> bool:
 
 
 def create_booking(
-    *, user, resource: Resource, start_at: datetime, end_at: datetime, guests: int
+    *, user: User, resource: Resource, start_at: datetime, end_at: datetime, guests: int
 ) -> Booking:
     if timezone.is_naive(start_at) or timezone.is_naive(end_at):
         raise BookingValidationError("Dates must include a timezone.")
@@ -43,7 +45,7 @@ def create_booking(
             if guests > locked_resource.capacity:
                 raise BookingValidationError(
                     "Guests exceed resource capacity.",
-                    code="capacity_exceeded",
+                    code="CAPACITY_EXCEEDED",
                 )
 
             overlap_exists = (
@@ -73,11 +75,11 @@ def create_booking(
         raise
 
 
-def list_user_bookings(*, user):
+def list_user_bookings(*, user: User) -> QuerySet[Booking]:
     return Booking.objects.filter(user=user).select_related("resource").order_by("-start_at", "-pk")
 
 
-def cancel_booking(*, user, booking_id: int) -> Booking:
+def cancel_booking(*, user: User, booking_id: int) -> Booking:
     with transaction.atomic():
         try:
             booking = (
@@ -89,12 +91,12 @@ def cancel_booking(*, user, booking_id: int) -> Booking:
             raise NotFound("Booking not found.") from exc
 
         if booking.status == BookingStatus.CANCELLED:
-            raise BookingConflict("Booking is already cancelled.", code="already_cancelled")
+            raise BookingConflict("Booking is already cancelled.", code="ALREADY_CANCELLED")
 
         if booking.status == BookingStatus.COMPLETED or booking.end_at <= timezone.now():
             raise BookingConflict(
                 "Completed bookings cannot be cancelled.",
-                code="booking_completed",
+                code="BOOKING_COMPLETED",
             )
 
         booking.status = BookingStatus.CANCELLED

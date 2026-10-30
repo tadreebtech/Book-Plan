@@ -5,7 +5,9 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.bookings.exceptions import BookingConflict, BookingValidationError, ResourceUnavailable
 from apps.bookings.models import Booking, BookingStatus, Resource, ResourceKind
+from apps.bookings.services import cancel_booking, create_booking
 
 pytestmark = pytest.mark.django_db
 
@@ -96,7 +98,7 @@ def test_list_and_details_are_only_for_owner(api, user, other_user, resource, ti
 
     denied = api.get(f"/api/v1/bookings/{foreign.pk}/")
     assert denied.status_code == 404
-    assert denied.data["error"]["code"] == "not_found"
+    assert denied.data["error"]["code"] == "NOT_FOUND"
 
 
 def test_overlap_rejected_but_adjacent_time_allowed(api, resource, times):
@@ -114,7 +116,7 @@ def test_overlap_rejected_but_adjacent_time_allowed(api, resource, times):
         format="json",
     )
     assert conflicting.status_code == 409
-    assert conflicting.data["error"]["code"] == "booking_conflict"
+    assert conflicting.data["error"]["code"] == "BOOKING_CONFLICT"
 
     adjacent = api.post(
         "/api/v1/bookings/",
@@ -124,6 +126,19 @@ def test_overlap_rejected_but_adjacent_time_allowed(api, resource, times):
         format="json",
     )
     assert adjacent.status_code == 201
+
+
+@pytest.mark.parametrize(
+    "method, path",
+    [
+        ("get", "/api/v1/bookings/abc/"),
+        ("post", "/api/v1/bookings/abc/cancel/"),
+    ],
+)
+def test_invalid_booking_id_returns_not_found(api, method, path):
+    response = getattr(api, method)(path)
+    assert response.status_code == 404
+    assert response.data["error"]["code"] == "NOT_FOUND"
 
 
 def test_cancel_frees_interval_and_second_cancel_fails(api, resource, times):
@@ -136,7 +151,7 @@ def test_cancel_frees_interval_and_second_cancel_fails(api, resource, times):
 
     second = api.post(f"/api/v1/bookings/{booking_id}/cancel/")
     assert second.status_code == 409
-    assert second.data["error"]["code"] == "already_cancelled"
+    assert second.data["error"]["code"] == "ALREADY_CANCELLED"
 
     assert api.post("/api/v1/bookings/", payload(resource, times), format="json").status_code == 201
 
@@ -155,20 +170,24 @@ def test_cannot_cancel_other_users_booking(api, other_user, resource, times):
 def test_validation_of_dates_guests_and_capacity(api, resource, times):
     start, end = times
     examples = [
-        payload(resource, times, end_at=start.isoformat()),
-        payload(resource, times, guests=0),
-        payload(resource, times, guests=5),
-        payload(
-            resource,
-            times,
-            start_at=(start - timedelta(days=3)).isoformat(),
-            end_at=(end - timedelta(days=3)).isoformat(),
+        (payload(resource, times, end_at=start.isoformat()), "VALIDATION_ERROR"),
+        (payload(resource, times, guests=0), "VALIDATION_ERROR"),
+        (payload(resource, times, guests=5), "CAPACITY_EXCEEDED"),
+        (
+            payload(
+                resource,
+                times,
+                start_at=(start - timedelta(days=3)).isoformat(),
+                end_at=(end - timedelta(days=3)).isoformat(),
+            ),
+            "INVALID_BOOKING",
         ),
     ]
-    for data in examples:
+    for data, expected_code in examples:
         response = api.post("/api/v1/bookings/", data, format="json")
         assert response.status_code == 400, response.data
         assert set(response.data) == {"error"}
+        assert response.data["error"]["code"] == expected_code
     assert Booking.objects.count() == 0
 
 
@@ -177,7 +196,7 @@ def test_inactive_resource_rejected(api, resource, times):
     resource.save(update_fields=["is_active"])
     response = api.post("/api/v1/bookings/", payload(resource, times), format="json")
     assert response.status_code == 400
-    assert response.data["error"]["code"] == "resource_unavailable"
+    assert response.data["error"]["code"] == "RESOURCE_UNAVAILABLE"
 
 
 def test_past_booking_has_effective_completed_status(api, user, resource):
@@ -198,4 +217,84 @@ def test_past_booking_has_effective_completed_status(api, user, resource):
 
     cancelled = api.post(f"/api/v1/bookings/{booking.pk}/cancel/")
     assert cancelled.status_code == 409
-    assert cancelled.data["error"]["code"] == "booking_completed"
+    assert cancelled.data["error"]["code"] == "BOOKING_COMPLETED"
+
+
+@pytest.mark.parametrize(
+    "method, path",
+    [
+        ("get", "/api/v1/bookings/999999/"),
+        ("post", "/api/v1/bookings/999999/cancel/"),
+    ],
+)
+def test_missing_booking_returns_not_found(api, method, path):
+    response = getattr(api, method)(path)
+    assert response.status_code == 404
+    assert response.data["error"]["code"] == "NOT_FOUND"
+
+
+def test_cancel_requires_authentication(user, resource, times):
+    start, end = times
+    booking = Booking.objects.create(
+        user=user, resource=resource, start_at=start, end_at=end, guests=1
+    )
+    response = APIClient().post(f"/api/v1/bookings/{booking.pk}/cancel/")
+    assert response.status_code in (401, 403)
+    booking.refresh_from_db()
+    assert booking.status == BookingStatus.CONFIRMED
+
+
+@pytest.mark.parametrize("case", ["past_start", "invalid_interval", "no_guests", "naive_start"])
+def test_service_validates_without_serializer(user, resource, times, case):
+    start, end = times
+    guests = 2
+    if case == "past_start":
+        start = timezone.now() - timedelta(hours=1)
+    elif case == "invalid_interval":
+        end = start
+    elif case == "no_guests":
+        guests = 0
+    elif case == "naive_start":
+        start = timezone.make_naive(start)
+
+    with pytest.raises(BookingValidationError) as exc:
+        create_booking(user=user, resource=resource, start_at=start, end_at=end, guests=guests)
+    assert exc.value.get_codes() == "INVALID_BOOKING"
+    assert not Booking.objects.exists()
+
+
+@pytest.mark.parametrize(
+    "attribute, value, exception_class, expected_code",
+    [
+        ("is_active", False, ResourceUnavailable, "RESOURCE_UNAVAILABLE"),
+        ("capacity", 1, BookingValidationError, "CAPACITY_EXCEEDED"),
+    ],
+)
+def test_service_rechecks_resource_state(
+    user, resource, times, attribute, value, exception_class, expected_code
+):
+    setattr(resource, attribute, value)
+    resource.save(update_fields=[attribute])
+    start, end = times
+
+    with pytest.raises(exception_class) as exc:
+        create_booking(user=user, resource=resource, start_at=start, end_at=end, guests=2)
+    assert exc.value.get_codes() == expected_code
+    assert not Booking.objects.exists()
+
+
+def test_service_rejects_cancellation_of_elapsed_booking(user, resource):
+    end = timezone.now() - timedelta(hours=1)
+    booking = Booking.objects.create(
+        user=user,
+        resource=resource,
+        start_at=end - timedelta(hours=1),
+        end_at=end,
+        guests=1,
+    )
+    with pytest.raises(BookingConflict) as exc:
+        cancel_booking(user=user, booking_id=booking.pk)
+
+    assert exc.value.get_codes() == "BOOKING_COMPLETED"
+    booking.refresh_from_db()
+    assert booking.status == BookingStatus.CONFIRMED
