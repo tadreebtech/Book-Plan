@@ -76,6 +76,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "EXCEPTION_HANDLER": "apps.common.exceptions.api_exception_handler",
 }
 
 LANGUAGE_CODE = "ru-ru"
