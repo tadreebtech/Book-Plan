@@ -1,4 +1,4 @@
-name: Lint
+name: Lint and tests
 
 on:
   push:
@@ -27,3 +27,47 @@ jobs:
 
       - name: flake8
         run: uv run --frozen flake8 .
+
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-for-production
+      DEBUG: "0"
+      POSTGRES_DB: book_plan
+      POSTGRES_USER: book_plan
+      POSTGRES_PASSWORD: book_plan_local
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: book_plan
+          POSTGRES_USER: book_plan
+          POSTGRES_PASSWORD: book_plan_local
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U book_plan -d book_plan"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Python 3.13
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run tests
+        run: uv run --frozen pytest -q
