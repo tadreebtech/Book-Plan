@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, master]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DJANGO_SECRET_KEY: django-insecure-ci-only-key
+  DEBUG: "0"
+  DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+  POSTGRES_DB: book_plan
+  POSTGRES_USER: book_plan
+  POSTGRES_PASSWORD: book_plan_ci
+  POSTGRES_HOST: localhost
+  POSTGRES_PORT: "5432"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: black
+        run: uv run --frozen black --check --diff .
+
+      - name: flake8
+        run: uv run --frozen flake8 --count .
+
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:18
+        # the env context is not available here, so the values repeat the workflow env
+        env:
+          POSTGRES_DB: book_plan
+          POSTGRES_USER: book_plan
+          POSTGRES_PASSWORD: book_plan_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U book_plan -d book_plan"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Django system check
+        run: uv run --frozen python manage.py check
+
+      - name: Check for missing migrations
+        run: uv run --frozen python manage.py makemigrations --check --dry-run
+
+      - name: pytest
+        run: uv run --frozen pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        if: github.event_name == 'push'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/book-plan-backend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha
+
+      # on pull requests the image is only built, pushes to dev/master publish it to GHCR
+      - uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
