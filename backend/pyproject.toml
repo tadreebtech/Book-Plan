@@ -16,7 +16,7 @@ dev = [
     "black>=26.10.0",
     "django-stubs>=5.2,<5.3",
     "flake8>=7.4.1",
-    "pytest>=8",
+    "pytest>=9.2.0",
     "pytest-django>=4.9",
 ]
 
