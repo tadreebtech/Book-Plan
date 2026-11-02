@@ -1,10 +1,10 @@
 from datetime import timedelta
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.utils import timezone
 
-from apps.accounts.models import User
 from apps.bookings.models import Booking, BookingStatus, Resource, ResourceKind
 
 
@@ -15,7 +15,7 @@ def resource():
 
 @pytest.fixture
 def user():
-    return User.objects.create_user(username="client", password="password")
+    return get_user_model().objects.create_user(username="client", password="password")
 
 
 def book(resource, user, start, hours=1, status=BookingStatus.CONFIRMED):

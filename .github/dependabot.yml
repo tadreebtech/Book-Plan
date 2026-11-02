@@ -15,6 +15,5 @@ updates:
     schedule:
       interval: weekly
     ignore:
-      # pyproject.toml pins requires-python to 3.13
       - dependency-name: python
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
