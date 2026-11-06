@@ -1,19 +1,40 @@
-from rest_framework.exceptions import APIException
+from apps.common.exceptions import ApplicationError
 
 
-class BookingValidationError(APIException):
-    status_code = 400
-    default_detail = "Invalid booking data."
-    default_code = "INVALID_BOOKING"
+class BookingValidationError(ApplicationError):
+    code = "INVALID_BOOKING"
+    message = "Invalid booking data."
 
 
-class ResourceUnavailable(APIException):
-    status_code = 400
-    default_detail = "Resource is unavailable for booking."
-    default_code = "RESOURCE_UNAVAILABLE"
+class CapacityExceeded(ApplicationError):
+    code = "CAPACITY_EXCEEDED"
+    message = "Guests exceed resource capacity."
 
 
-class BookingConflict(APIException):
+class ResourceUnavailable(ApplicationError):
+    code = "RESOURCE_UNAVAILABLE"
+    message = "Resource is unavailable for booking."
+
+
+class BookingNotFound(ApplicationError):
+    status_code = 404
+    code = "NOT_FOUND"
+    message = "Booking not found."
+
+
+class BookingConflict(ApplicationError):
     status_code = 409
-    default_detail = "This time slot is already booked."
-    default_code = "BOOKING_CONFLICT"
+    code = "BOOKING_CONFLICT"
+    message = "This time slot is already booked."
+
+
+class BookingAlreadyCancelled(ApplicationError):
+    status_code = 409
+    code = "ALREADY_CANCELLED"
+    message = "Booking is already cancelled."
+
+
+class BookingCompleted(ApplicationError):
+    status_code = 409
+    code = "BOOKING_COMPLETED"
+    message = "Completed bookings cannot be cancelled."

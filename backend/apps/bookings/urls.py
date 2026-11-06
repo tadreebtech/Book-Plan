@@ -1,8 +1,9 @@
-from rest_framework.routers import SimpleRouter
+from django.urls import path
 
-from apps.bookings.views import BookingViewSet
+from apps.bookings.apis import BookingCancelApi, BookingDetailApi, BookingListCreateApi
 
-router = SimpleRouter()
-router.register("bookings", BookingViewSet, basename="booking")
-
-urlpatterns = router.urls
+urlpatterns = [
+    path("bookings/", BookingListCreateApi.as_view(), name="booking-list-create"),
+    path("bookings/<int:booking_id>/", BookingDetailApi.as_view(), name="booking-detail"),
+    path("bookings/<int:booking_id>/cancel/", BookingCancelApi.as_view(), name="booking-cancel"),
+]

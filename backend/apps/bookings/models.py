@@ -58,6 +58,7 @@ class Resource(BaseModel):
         ]
 
     def __str__(self) -> str:
+        """Метод, возвращающий название ресурса для списков и админки"""
         return self.name
 
 
@@ -97,4 +98,5 @@ class Booking(BaseModel):
         ]
 
     def __str__(self) -> str:
+        """Метод, возвращающий название ресурса и время начала брони для списков и админки"""
         return f"{self.resource} {self.start_at:%Y-%m-%d %H:%M}"

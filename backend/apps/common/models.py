@@ -9,4 +9,6 @@ class BaseModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        """Класс, помечающий модель абстрактной: отдельная таблица для нее не создается"""
+
         abstract = True

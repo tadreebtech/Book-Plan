@@ -9,3 +9,5 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include(api_v1)),
 ]
+
+handler404 = "apps.common.exceptions.page_not_found_handler"

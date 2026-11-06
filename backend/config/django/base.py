@@ -7,6 +7,7 @@ DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost"])
 
 LOCAL_APPS = [
+    "apps.common",
     "apps.accounts",
     "apps.bookings",
 ]
@@ -78,9 +79,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "EXCEPTION_HANDLER": "apps.common.exceptions.custom_exception_handler",
 }
 
-LANGUAGE_CODE = "ru"
+LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Europe/Moscow"
 USE_I18N = True
 USE_TZ = True

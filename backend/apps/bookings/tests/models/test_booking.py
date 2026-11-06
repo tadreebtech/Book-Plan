@@ -1,24 +1,20 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
-from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.utils import timezone
 
-from apps.bookings.models import Booking, BookingStatus, Resource, ResourceKind
+from apps.accounts.models import User
+from apps.bookings.models import Booking, BookingStatus, Resource
 
 
-@pytest.fixture
-def resource():
-    return Resource.objects.create(kind=ResourceKind.UNIVERSITY_ROOM, name="101", capacity=30)
-
-
-@pytest.fixture
-def user():
-    return get_user_model().objects.create_user(username="client", password="password")
-
-
-def book(resource, user, start, hours=1, status=BookingStatus.CONFIRMED):
+def book(
+    resource: Resource,
+    user: User,
+    start: datetime,
+    hours: int = 1,
+    status: str = BookingStatus.CONFIRMED,
+) -> Booking:
     return Booking.objects.create(
         resource=resource,
         user=user,
