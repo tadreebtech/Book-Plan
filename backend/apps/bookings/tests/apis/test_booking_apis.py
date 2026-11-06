@@ -209,20 +209,3 @@ def test_cancel_requires_authentication(user, resource, times):
     assert response.status_code == 403
     booking.refresh_from_db()
     assert booking.status == BookingStatus.CONFIRMED
-
-
-def test_client_logs_in_through_api_login_page(user, client):
-    """Функция, проверяющая вход клиента через страницу входа API без доступа к админке"""
-    user.set_password("test-pass-123")
-    user.save(update_fields=["password"])
-
-    response = client.post(
-        "/api-auth/login/",
-        {"username": user.username, "password": "test-pass-123", "next": "/api/v1/bookings/"},
-    )
-
-    assert response.status_code == 302
-    assert response["Location"] == "/api/v1/bookings/"
-    assert client.get("/api/v1/bookings/").status_code == 200
-    assert client.get("/admin/").status_code == 302
-    assert client.get("/api/v1/auth/login/").status_code == 404

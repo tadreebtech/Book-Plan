@@ -8,7 +8,7 @@ from apps.bookings.models import Booking, BookingStatus
 
 
 def _booking_queryset() -> QuerySet[Booking]:
-    """Функция, возвращающая все брони от поздних к ранним с фактическим статусом effective_status"""
+    """Функция, возвращающая все брони от поздних к ранним с фактическим статусом"""
     effective_status = Case(
         When(status=BookingStatus.CANCELLED, then=Value(BookingStatus.CANCELLED)),
         When(
