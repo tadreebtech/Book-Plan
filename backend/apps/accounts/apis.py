@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsAdminRole
-from apps.accounts.selectors import user_list
+from apps.accounts.selectors import user_get, user_list
 
 
 class UserListApi(APIView):
@@ -76,3 +76,40 @@ class UserListApi(APIView):
         )
 
         return Response({"count": count, "page": page, "page_size": page_size, "results": results})
+
+
+class UserDetailApi(APIView):
+    """Класс, возвращающий администратору карточку пользователя по идентификатору"""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    class InputSerializer(serializers.Serializer):
+        """Класс, проверяющий идентификатор пользователя из адреса запроса"""
+
+        id = serializers.IntegerField(min_value=1)
+
+    class OutputSerializer(serializers.Serializer):
+        """Класс, представляющий расширенные данные пользователя в ответе API"""
+
+        id = serializers.IntegerField()
+        email = serializers.EmailField()
+        name = serializers.SerializerMethodField()
+        role = serializers.CharField()
+        is_active = serializers.BooleanField()
+        is_blocked = serializers.BooleanField()
+        created_at = serializers.DateTimeField()
+        updated_at = serializers.DateTimeField()
+        last_login = serializers.DateTimeField(allow_null=True)
+
+        def get_name(self, user: User) -> str:
+            """Метод, возвращающий полное имя или логин при отсутствии имени"""
+
+            return user.get_full_name().strip() or user.username
+
+    def get(self, request: Request, user_id: str) -> Response:
+        """Метод, возвращающий расширенные данные выбранного пользователя"""
+
+        serializer = self.InputSerializer(data={"id": user_id})
+        serializer.is_valid(raise_exception=True)
+        user = user_get(user_id=serializer.validated_data["id"])
+        return Response(self.OutputSerializer(user).data)
