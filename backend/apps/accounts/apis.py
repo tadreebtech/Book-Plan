@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsAdminRole
 from apps.accounts.selectors import user_get, user_list
+from apps.accounts.services import user_block, user_unblock
 
 
 class UserListApi(APIView):
@@ -112,4 +113,54 @@ class UserDetailApi(APIView):
         serializer = self.InputSerializer(data={"id": user_id})
         serializer.is_valid(raise_exception=True)
         user = user_get(user_id=serializer.validated_data["id"])
+        return Response(self.OutputSerializer(user).data)
+
+
+class UserBlockApi(APIView):
+    """Класс, блокирующий выбранного пользователя по запросу администратора"""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    class InputSerializer(serializers.Serializer):
+        """Класс, проверяющий идентификатор пользователя для блокировки"""
+
+        id = serializers.IntegerField(min_value=1)
+
+    class OutputSerializer(serializers.Serializer):
+        """Класс, представляющий статус пользователя после блокировки"""
+
+        id = serializers.IntegerField()
+        is_blocked = serializers.BooleanField()
+
+    def post(self, request: Request, user_id: str) -> Response:
+        """Метод, блокирующий пользователя и возвращающий его текущий статус"""
+
+        serializer = self.InputSerializer(data={"id": user_id})
+        serializer.is_valid(raise_exception=True)
+        user = user_block(actor=request.user, user_id=serializer.validated_data["id"])
+        return Response(self.OutputSerializer(user).data)
+
+
+class UserUnblockApi(APIView):
+    """Класс, снимающий блокировку выбранного пользователя по запросу администратора"""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    class InputSerializer(serializers.Serializer):
+        """Класс, проверяющий идентификатор пользователя для разблокировки"""
+
+        id = serializers.IntegerField(min_value=1)
+
+    class OutputSerializer(serializers.Serializer):
+        """Класс, представляющий статус пользователя после разблокировки"""
+
+        id = serializers.IntegerField()
+        is_blocked = serializers.BooleanField()
+
+    def post(self, request: Request, user_id: str) -> Response:
+        """Метод, снимающий блокировку и возвращающий текущий статус пользователя"""
+
+        serializer = self.InputSerializer(data={"id": user_id})
+        serializer.is_valid(raise_exception=True)
+        user = user_unblock(actor=request.user, user_id=serializer.validated_data["id"])
         return Response(self.OutputSerializer(user).data)
