@@ -1,5 +1,6 @@
 from django.db.models import Q, QuerySet, Value
 from django.db.models.functions import Concat
+from django.shortcuts import get_object_or_404
 
 from apps.accounts.models import User
 
@@ -32,3 +33,9 @@ def user_list(
 
     secondary_ordering = "-id" if ordering.startswith("-") else "id"
     return users.order_by(ordering, secondary_ordering)
+
+
+def user_get(*, user_id: int) -> User:
+    """Функция, получающая пользователя по идентификатору или возвращающая ошибку 404"""
+
+    return get_object_or_404(User, pk=user_id)
