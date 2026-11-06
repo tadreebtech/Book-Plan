@@ -1,8 +1,9 @@
 import logging
 from typing import Any
 
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.views.defaults import page_not_found
 from rest_framework import exceptions
 from rest_framework.response import Response
@@ -41,6 +42,10 @@ def custom_exception_handler(exc: Exception, context: dict) -> Response | None:
 
     if isinstance(exc, DjangoValidationError):
         exc = exceptions.ValidationError(as_serializer_error(exc))
+    elif isinstance(exc, Http404):
+        exc = exceptions.NotFound()
+    elif isinstance(exc, DjangoPermissionDenied):
+        exc = exceptions.PermissionDenied()
 
     response = exception_handler(exc, context)
     if response is None:

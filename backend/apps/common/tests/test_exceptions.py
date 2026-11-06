@@ -1,7 +1,8 @@
 import json
 import logging
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.http import Http404
 from django.test import RequestFactory
 
 from apps.common.exceptions import (
@@ -34,6 +35,21 @@ def test_django_validation_error_becomes_validation_error():
     assert response.status_code == 400
     assert response.data["code"] == "VALIDATION_ERROR"
     assert response.data["details"] == {"guests": ["Too few."]}
+
+
+def test_django_http404_becomes_not_found_without_model_name():
+    response = custom_exception_handler(Http404("No User matches the given query."), {})
+
+    assert response.status_code == 404
+    assert response.data["code"] == "NOT_FOUND"
+    assert "User" not in response.data["message"]
+
+
+def test_django_permission_denied_becomes_permission_denied():
+    response = custom_exception_handler(PermissionDenied(), {})
+
+    assert response.status_code == 403
+    assert response.data["code"] == "PERMISSION_DENIED"
 
 
 def test_unexpected_error_is_logged_and_left_to_django(caplog):
