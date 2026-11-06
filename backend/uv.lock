@@ -61,7 +61,7 @@ requires-dist = [
     { name = "django-environ", specifier = ">=0.14.0" },
     { name = "djangorestframework", specifier = ">=3.16" },
     { name = "gunicorn", specifier = ">=26.2.0" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6" },
     { name = "whitenoise", specifier = ">=6.12.0" },
 ]
 
