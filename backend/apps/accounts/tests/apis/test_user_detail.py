@@ -35,9 +35,9 @@ def test_user_detail_returns_extended_fields(admin_client: APIClient) -> None:
         last_name="Петрова",
         role=Role.CLIENT,
     )
-    user.is_blocked = True
+    user.is_active = False
     user.last_login = timezone.now()
-    user.save(update_fields=["is_blocked", "last_login", "updated_at"])
+    user.save(update_fields=["is_active", "last_login", "updated_at"])
 
     response = admin_client.get(reverse("admin-user-detail", args=[user.pk]))
 
@@ -47,8 +47,7 @@ def test_user_detail_returns_extended_fields(admin_client: APIClient) -> None:
         "email": "client@example.com",
         "name": "Анна Петрова",
         "role": Role.CLIENT,
-        "is_active": True,
-        "is_blocked": True,
+        "is_active": False,
         "created_at": response.data["created_at"],
         "updated_at": response.data["updated_at"],
         "last_login": response.data["last_login"],
@@ -68,7 +67,7 @@ def test_user_detail_uses_username_when_name_is_empty(admin_client: APIClient) -
 
     assert response.status_code == 200
     assert response.data["name"] == "no-name"
-    assert response.data["is_blocked"] is False
+    assert response.data["is_active"] is True
     assert response.data["last_login"] is None
 
 
@@ -115,16 +114,15 @@ def test_user_detail_denies_anonymous_client(admin_user: User) -> None:
 
     response = APIClient().get(reverse("admin-user-detail", args=[admin_user.pk]))
 
-    assert response.status_code in (401, 403)
+    assert response.status_code == 403
     assert response.data["code"] == "UNAUTHORIZED"
 
 
-@pytest.mark.parametrize("attribute", ["is_active", "is_blocked"])
-def test_user_detail_denies_inactive_or_blocked_admin(admin_user: User, attribute: str) -> None:
-    """Функция, проверяющая запрет доступа неактивному или заблокированному админу"""
+def test_user_detail_denies_inactive_admin(admin_user: User) -> None:
+    """Функция, проверяющая запрет доступа неактивному администратору"""
 
-    setattr(admin_user, attribute, attribute == "is_blocked")
-    admin_user.save(update_fields=[attribute])
+    admin_user.is_active = False
+    admin_user.save(update_fields=["is_active"])
     client = APIClient()
     client.force_authenticate(user=admin_user)
 

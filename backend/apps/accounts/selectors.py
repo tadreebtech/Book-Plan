@@ -1,6 +1,5 @@
 from django.db.models import Q, QuerySet, Value
 from django.db.models.functions import Concat
-from django.shortcuts import get_object_or_404
 
 from apps.accounts.models import User
 
@@ -35,7 +34,13 @@ def user_list(
     return users.order_by(ordering, secondary_ordering)
 
 
-def user_get(*, user_id: int) -> User:
-    """Функция, получающая пользователя по идентификатору или возвращающая ошибку 404"""
+def user_get(*, user_id: int) -> User | None:
+    """Функция, получающая пользователя по идентификатору при его наличии"""
 
-    return get_object_or_404(User, pk=user_id)
+    return User.objects.filter(pk=user_id).first()
+
+
+def user_get_display_name(*, user: User) -> str:
+    """Функция, возвращающая полное имя пользователя или его логин"""
+
+    return user.get_full_name().strip() or user.username
