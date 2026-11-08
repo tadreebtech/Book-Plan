@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -6,7 +7,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsAdminRole
-from apps.accounts.selectors import user_get, user_list
+from apps.accounts.selectors import user_get, user_get_display_name, user_list
 from apps.accounts.services import user_block, user_unblock
 
 
@@ -51,7 +52,7 @@ class UserListApi(APIView):
         def get_name(self, user: User) -> str:
             """Метод, возвращающий полное имя или логин, если имя не заполнено"""
 
-            return user.get_full_name().strip() or user.username
+            return user_get_display_name(user=user)
 
     def get(self, request: Request) -> Response:
         """Метод, возвращающий страницу пользователей с общим количеством записей"""
@@ -97,7 +98,6 @@ class UserDetailApi(APIView):
         name = serializers.SerializerMethodField()
         role = serializers.CharField()
         is_active = serializers.BooleanField()
-        is_blocked = serializers.BooleanField()
         created_at = serializers.DateTimeField()
         updated_at = serializers.DateTimeField()
         last_login = serializers.DateTimeField(allow_null=True)
@@ -105,7 +105,7 @@ class UserDetailApi(APIView):
         def get_name(self, user: User) -> str:
             """Метод, возвращающий полное имя или логин при отсутствии имени"""
 
-            return user.get_full_name().strip() or user.username
+            return user_get_display_name(user=user)
 
     def get(self, request: Request, user_id: str) -> Response:
         """Метод, возвращающий расширенные данные выбранного пользователя"""
@@ -113,6 +113,8 @@ class UserDetailApi(APIView):
         serializer = self.InputSerializer(data={"id": user_id})
         serializer.is_valid(raise_exception=True)
         user = user_get(user_id=serializer.validated_data["id"])
+        if user is None:
+            raise NotFound()
         return Response(self.OutputSerializer(user).data)
 
 
@@ -130,14 +132,17 @@ class UserBlockApi(APIView):
         """Класс, представляющий статус пользователя после блокировки"""
 
         id = serializers.IntegerField()
-        is_blocked = serializers.BooleanField()
+        is_active = serializers.BooleanField()
 
     def post(self, request: Request, user_id: str) -> Response:
         """Метод, блокирующий пользователя и возвращающий его текущий статус"""
 
         serializer = self.InputSerializer(data={"id": user_id})
         serializer.is_valid(raise_exception=True)
-        user = user_block(actor=request.user, user_id=serializer.validated_data["id"])
+        try:
+            user = user_block(actor=request.user, user_id=serializer.validated_data["id"])
+        except User.DoesNotExist as exc:
+            raise NotFound() from exc
         return Response(self.OutputSerializer(user).data)
 
 
@@ -155,12 +160,15 @@ class UserUnblockApi(APIView):
         """Класс, представляющий статус пользователя после разблокировки"""
 
         id = serializers.IntegerField()
-        is_blocked = serializers.BooleanField()
+        is_active = serializers.BooleanField()
 
     def post(self, request: Request, user_id: str) -> Response:
         """Метод, снимающий блокировку и возвращающий текущий статус пользователя"""
 
         serializer = self.InputSerializer(data={"id": user_id})
         serializer.is_valid(raise_exception=True)
-        user = user_unblock(actor=request.user, user_id=serializer.validated_data["id"])
+        try:
+            user = user_unblock(actor=request.user, user_id=serializer.validated_data["id"])
+        except User.DoesNotExist as exc:
+            raise NotFound() from exc
         return Response(self.OutputSerializer(user).data)

@@ -16,7 +16,6 @@ class User(BaseModel, AbstractUser):
     """Класс, описывающий пользователя платформы: логин, пароль, email и роль"""
 
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.CLIENT)
-    is_blocked = models.BooleanField(default=False)
 
     class Meta:
         """Класс, задающий правила таблицы пользователей, которые проверяет сама база данных"""

@@ -41,9 +41,8 @@ def test_block_creates_audit_record(
     target_user.refresh_from_db()
 
     assert response.status_code == 200
-    assert response.data == {"id": target_user.pk, "is_blocked": True}
-    assert target_user.is_blocked is True
-    assert target_user.is_active is True
+    assert response.data == {"id": target_user.pk, "is_active": False}
+    assert target_user.is_active is False
 
     audit_log = AuditLog.objects.get()
     assert audit_log.actor_id == admin_user.pk
@@ -57,33 +56,31 @@ def test_unblock_creates_audit_record(
 ) -> None:
     """Функция, проверяющая снятие блокировки и запись действия в аудит"""
 
-    target_user.is_blocked = True
-    target_user.save(update_fields=["is_blocked"])
+    target_user.is_active = False
+    target_user.save(update_fields=["is_active"])
 
     response = admin_client.post(reverse("admin-user-unblock", args=[target_user.pk]))
     target_user.refresh_from_db()
 
     assert response.status_code == 200
-    assert response.data == {"id": target_user.pk, "is_blocked": False}
-    assert target_user.is_blocked is False
+    assert response.data == {"id": target_user.pk, "is_active": True}
+    assert target_user.is_active is True
     audit_log = AuditLog.objects.get()
     assert audit_log.actor_id == admin_user.pk
     assert audit_log.target_id == target_user.pk
     assert audit_log.action == AuditAction.USER_UNBLOCKED
 
 
-def test_status_change_preserves_inactive_state(admin_client: APIClient, target_user: User) -> None:
-    """Функция, проверяющая сохранение независимого признака активности пользователя"""
-
-    target_user.is_active = False
-    target_user.save(update_fields=["is_active"])
+def test_block_then_unblock_restores_active_state(
+    admin_client: APIClient, target_user: User
+) -> None:
+    """Функция, проверяющая восстановление активности после разблокировки"""
 
     admin_client.post(reverse("admin-user-block", args=[target_user.pk]))
     admin_client.post(reverse("admin-user-unblock", args=[target_user.pk]))
     target_user.refresh_from_db()
 
-    assert target_user.is_active is False
-    assert target_user.is_blocked is False
+    assert target_user.is_active is True
     assert list(AuditLog.objects.order_by("pk").values_list("action", flat=True)) == [
         AuditAction.USER_BLOCKED,
         AuditAction.USER_UNBLOCKED,
@@ -106,28 +103,28 @@ def test_audit_failure_rolls_back_block(
     target_user.refresh_from_db()
 
     assert response.status_code == 500
-    assert target_user.is_blocked is False
+    assert target_user.is_active is True
     assert AuditLog.objects.count() == 0
 
 
 @pytest.mark.parametrize(
-    ("route_name", "initially_blocked"),
-    [("admin-user-block", True), ("admin-user-unblock", False)],
+    ("route_name", "initially_active"),
+    [("admin-user-block", False), ("admin-user-unblock", True)],
 )
 def test_repeated_status_change_is_idempotent(
-    admin_client: APIClient, target_user: User, route_name: str, initially_blocked: bool
+    admin_client: APIClient, target_user: User, route_name: str, initially_active: bool
 ) -> None:
     """Функция, проверяющая повторное действие без изменения времени и аудита"""
 
-    target_user.is_blocked = initially_blocked
-    target_user.save(update_fields=["is_blocked"])
+    target_user.is_active = initially_active
+    target_user.save(update_fields=["is_active"])
     original_updated_at = target_user.updated_at
 
     response = admin_client.post(reverse(route_name, args=[target_user.pk]))
     target_user.refresh_from_db()
 
     assert response.status_code == 200
-    assert response.data == {"id": target_user.pk, "is_blocked": initially_blocked}
+    assert response.data == {"id": target_user.pk, "is_active": initially_active}
     assert target_user.updated_at == original_updated_at
     assert AuditLog.objects.count() == 0
 
@@ -179,7 +176,7 @@ def test_admin_cannot_block_self(admin_client: APIClient, admin_user: User) -> N
 
     assert response.status_code == 403
     assert response.data["code"] == "ACCESS_DENIED"
-    assert admin_user.is_blocked is False
+    assert admin_user.is_active is True
     assert AuditLog.objects.count() == 0
 
 
@@ -193,7 +190,7 @@ def test_admin_cannot_block_other_admin(admin_client: APIClient) -> None:
 
     assert response.status_code == 403
     assert response.data["code"] == "ACCESS_DENIED"
-    assert other_admin.is_blocked is False
+    assert other_admin.is_active is True
     assert AuditLog.objects.count() == 0
 
 
@@ -219,20 +216,19 @@ def test_anonymous_cannot_change_status(target_user: User, route_name: str) -> N
 
     response = APIClient().post(reverse(route_name, args=[target_user.pk]))
 
-    assert response.status_code in (401, 403)
+    assert response.status_code == 403
     assert response.data["code"] == "UNAUTHORIZED"
     assert AuditLog.objects.count() == 0
 
 
 @pytest.mark.parametrize("route_name", ["admin-user-block", "admin-user-unblock"])
-@pytest.mark.parametrize("attribute", ["is_active", "is_blocked"])
-def test_inactive_or_blocked_admin_cannot_change_status(
-    admin_user: User, target_user: User, route_name: str, attribute: str
+def test_inactive_admin_cannot_change_status(
+    admin_user: User, target_user: User, route_name: str
 ) -> None:
-    """Функция, проверяющая запрет для неактивного или заблокированного админа"""
+    """Функция, проверяющая запрет изменения статуса неактивному админу"""
 
-    setattr(admin_user, attribute, attribute == "is_blocked")
-    admin_user.save(update_fields=[attribute])
+    admin_user.is_active = False
+    admin_user.save(update_fields=["is_active"])
     client = APIClient()
     client.force_authenticate(user=admin_user)
 
