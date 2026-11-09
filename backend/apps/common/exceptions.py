@@ -3,6 +3,7 @@ import logging
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.http import Http404
 from rest_framework.exceptions import (
+    APIException,
     AuthenticationFailed,
     MethodNotAllowed,
     NotAuthenticated,
@@ -23,28 +24,32 @@ def api_exception_handler(exc: Exception, context: dict) -> Response | None:
     if response is None:
         logger.error("Неожиданная ошибка API: %s", type(exc).__name__)
         return Response(
-            {"code": "INTERNAL_ERROR", "message": "Внутренняя ошибка сервера.", "details": {}},
+            {"code": "INTERNAL_ERROR", "message": "Internal server error.", "details": {}},
             status=500,
         )
 
     if isinstance(exc, (NotAuthenticated, AuthenticationFailed)):
         code = "UNAUTHORIZED"
-        message = "Требуется авторизация."
+        message = "Authentication is required."
     elif isinstance(exc, (PermissionDenied, DjangoPermissionDenied)):
         code = "ACCESS_DENIED"
-        message = "Недостаточно прав для выполнения операции."
+        message = "You do not have permission to perform this action."
     elif isinstance(exc, ValidationError):
         code = "VALIDATION_ERROR"
-        message = "Некорректные параметры запроса."
+        message = "Invalid request data."
     elif isinstance(exc, (NotFound, Http404)):
         code = "NOT_FOUND"
-        message = "Запрошенный объект не найден."
+        message = "Requested object not found."
     elif isinstance(exc, MethodNotAllowed):
         code = "METHOD_NOT_ALLOWED"
-        message = "Метод запроса не поддерживается."
+        message = "Method not allowed."
+    elif isinstance(exc, APIException):
+        codes = exc.get_codes()
+        code = codes.upper() if isinstance(codes, str) else "API_ERROR"
+        message = str(exc.detail) if isinstance(exc.detail, str) else "Invalid request data."
     else:
         code = "API_ERROR"
-        message = "Не удалось обработать запрос."
+        message = "Request could not be processed."
 
     details = {}
     if isinstance(exc, ValidationError):

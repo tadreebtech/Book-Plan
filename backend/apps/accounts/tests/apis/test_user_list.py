@@ -214,7 +214,7 @@ def test_user_list_rejects_non_admin_roles(role: str, admin_user: User) -> None:
     assert response.status_code == 403
     assert response.data == {
         "code": "ACCESS_DENIED",
-        "message": "Недостаточно прав для выполнения операции.",
+        "message": "You do not have permission to perform this action.",
         "details": {},
     }
 
@@ -252,7 +252,7 @@ def test_user_list_rejects_post_with_api_error_format(admin_client: APIClient) -
     assert response.status_code == 405
     assert response.data == {
         "code": "METHOD_NOT_ALLOWED",
-        "message": "Метод запроса не поддерживается.",
+        "message": "Method not allowed.",
         "details": {},
     }
 
@@ -276,7 +276,7 @@ def test_user_list_hides_unexpected_errors(
     assert response.status_code == 500
     assert response.data == {
         "code": "INTERNAL_ERROR",
-        "message": "Внутренняя ошибка сервера.",
+        "message": "Internal server error.",
         "details": {},
     }
     assert "sensitive-value" not in str(response.json())
@@ -304,5 +304,5 @@ def test_user_list_validates_query_parameters(
 
     assert response.status_code == 400
     assert response.data["code"] == "VALIDATION_ERROR"
-    assert response.data["message"] == "Некорректные параметры запроса."
+    assert response.data["message"] == "Invalid request data."
     assert field in response.data["details"]

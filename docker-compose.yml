@@ -12,7 +12,9 @@ services:
       retries: 10
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      target: dev
     env_file: .env
     environment:
       POSTGRES_HOST: db

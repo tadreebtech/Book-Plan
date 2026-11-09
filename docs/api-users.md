@@ -46,7 +46,7 @@
 Ошибки имеют единый формат:
 
 ```json
-{"code": "NOT_FOUND", "message": "Запрошенный объект не найден.", "details": {}}
+{"code": "NOT_FOUND", "message": "Requested object not found.", "details": {}}
 ```
 
 | HTTP | Код | Когда возникает |

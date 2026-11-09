@@ -6,29 +6,24 @@ dependencies = [
     "django>=5.2,<5.3",
     "django-environ>=0.14.0",
     "djangorestframework>=3.16",
-    "psycopg[binary]>=3.2",
+    "gunicorn>=26.2.0",
+    "psycopg[binary]>=3.3.6",
+    "whitenoise>=6.12.0",
 ]
 
 [dependency-groups]
 dev = [
-    "black>=26.10.0",
+    "black>=26.10.1",
     "django-stubs>=5.2,<5.3",
-    "flake8>=7.4.1",
-    "pytest>=8",
+    "flake8>=7.5.0",
+    "pytest>=9.2.0",
     "pytest-django>=4.9",
-    "ruff>=0.6",
 ]
 
 [tool.black]
 line-length = 100
 extend-exclude = "/migrations/"
 
-[tool.ruff]
-line-length = 100
-extend-exclude = ["**/migrations"]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "DJ"]
-
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.django.base"
+filterwarnings = ["ignore:No directory at:UserWarning"]
