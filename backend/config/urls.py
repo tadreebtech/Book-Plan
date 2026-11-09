@@ -2,8 +2,8 @@ from django.contrib import admin
 from django.urls import include, path
 
 api_v1 = [
-  path("", include("apps.accounts.urls")),
-  path("", include("apps.bookings.urls")),
+    path("", include("apps.accounts.urls")),
+    path("", include("apps.bookings.urls")),
 ]
 
 urlpatterns = [

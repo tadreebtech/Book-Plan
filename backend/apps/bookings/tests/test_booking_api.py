@@ -73,11 +73,11 @@ def test_create_booking(api, user, resource, times):
 def test_requires_authentication(resource, times):
     response = APIClient().get("/api/v1/bookings/")
     assert response.status_code in (401, 403)
-    assert response.data["error"]["code"]
+    assert response.data["code"] == "UNAUTHORIZED"
 
     response = APIClient().post("/api/v1/bookings/", payload(resource, times), format="json")
     assert response.status_code in (401, 403)
-    assert "error" in response.data
+    assert set(response.data) == {"code", "message", "details"}
 
 
 def test_list_and_details_are_only_for_owner(api, user, other_user, resource, times):
@@ -98,7 +98,7 @@ def test_list_and_details_are_only_for_owner(api, user, other_user, resource, ti
 
     denied = api.get(f"/api/v1/bookings/{foreign.pk}/")
     assert denied.status_code == 404
-    assert denied.data["error"]["code"] == "NOT_FOUND"
+    assert denied.data["code"] == "NOT_FOUND"
 
 
 def test_overlap_rejected_but_adjacent_time_allowed(api, resource, times):
@@ -116,7 +116,7 @@ def test_overlap_rejected_but_adjacent_time_allowed(api, resource, times):
         format="json",
     )
     assert conflicting.status_code == 409
-    assert conflicting.data["error"]["code"] == "BOOKING_CONFLICT"
+    assert conflicting.data["code"] == "BOOKING_CONFLICT"
 
     adjacent = api.post(
         "/api/v1/bookings/",
@@ -138,7 +138,7 @@ def test_overlap_rejected_but_adjacent_time_allowed(api, resource, times):
 def test_invalid_booking_id_returns_not_found(api, method, path):
     response = getattr(api, method)(path)
     assert response.status_code == 404
-    assert response.data["error"]["code"] == "NOT_FOUND"
+    assert response.data["code"] == "NOT_FOUND"
 
 
 def test_cancel_frees_interval_and_second_cancel_fails(api, resource, times):
@@ -151,7 +151,7 @@ def test_cancel_frees_interval_and_second_cancel_fails(api, resource, times):
 
     second = api.post(f"/api/v1/bookings/{booking_id}/cancel/")
     assert second.status_code == 409
-    assert second.data["error"]["code"] == "ALREADY_CANCELLED"
+    assert second.data["code"] == "ALREADY_CANCELLED"
 
     assert api.post("/api/v1/bookings/", payload(resource, times), format="json").status_code == 201
 
@@ -186,8 +186,8 @@ def test_validation_of_dates_guests_and_capacity(api, resource, times):
     for data, expected_code in examples:
         response = api.post("/api/v1/bookings/", data, format="json")
         assert response.status_code == 400, response.data
-        assert set(response.data) == {"error"}
-        assert response.data["error"]["code"] == expected_code
+        assert set(response.data) == {"code", "message", "details"}
+        assert response.data["code"] == expected_code
     assert Booking.objects.count() == 0
 
 
@@ -196,7 +196,7 @@ def test_inactive_resource_rejected(api, resource, times):
     resource.save(update_fields=["is_active"])
     response = api.post("/api/v1/bookings/", payload(resource, times), format="json")
     assert response.status_code == 400
-    assert response.data["error"]["code"] == "RESOURCE_UNAVAILABLE"
+    assert response.data["code"] == "RESOURCE_UNAVAILABLE"
 
 
 def test_past_booking_has_effective_completed_status(api, user, resource):
@@ -217,7 +217,7 @@ def test_past_booking_has_effective_completed_status(api, user, resource):
 
     cancelled = api.post(f"/api/v1/bookings/{booking.pk}/cancel/")
     assert cancelled.status_code == 409
-    assert cancelled.data["error"]["code"] == "BOOKING_COMPLETED"
+    assert cancelled.data["code"] == "BOOKING_COMPLETED"
 
 
 @pytest.mark.parametrize(
@@ -230,7 +230,7 @@ def test_past_booking_has_effective_completed_status(api, user, resource):
 def test_missing_booking_returns_not_found(api, method, path):
     response = getattr(api, method)(path)
     assert response.status_code == 404
-    assert response.data["error"]["code"] == "NOT_FOUND"
+    assert response.data["code"] == "NOT_FOUND"
 
 
 def test_cancel_requires_authentication(user, resource, times):
