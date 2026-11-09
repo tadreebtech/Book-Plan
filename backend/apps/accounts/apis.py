@@ -35,7 +35,7 @@ class UserListApi(APIView):
             if role == "PROVIDER":
                 role = Role.MANAGER
             if role not in Role.values:
-                raise serializers.ValidationError("Неизвестная роль пользователя.")
+                raise serializers.ValidationError("Unknown user role.")
             return role
 
     class OutputSerializer(serializers.Serializer):

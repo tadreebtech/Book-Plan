@@ -10,6 +10,7 @@ from rest_framework.exceptions import (
     ValidationError,
 )
 
+from apps.bookings.exceptions import BookingConflict, BookingValidationError, ResourceUnavailable
 from apps.common.exceptions import api_exception_handler
 
 
@@ -61,8 +62,33 @@ def test_api_exception_handler_hides_unexpected_error_details(
     assert response.status_code == 500
     assert response.data == {
         "code": "INTERNAL_ERROR",
-        "message": "Внутренняя ошибка сервера.",
+        "message": "Internal server error.",
         "details": {},
     }
     assert "RuntimeError" in caplog.text
     assert "sensitive-value" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("error", "code", "status", "message"),
+    [
+        (BookingConflict(), "BOOKING_CONFLICT", 409, "This time slot is already booked."),
+        (
+            ResourceUnavailable(),
+            "RESOURCE_UNAVAILABLE",
+            400,
+            "Resource is unavailable for booking.",
+        ),
+        (BookingValidationError(), "INVALID_BOOKING", 400, "Invalid booking data."),
+    ],
+)
+def test_api_exception_handler_preserves_booking_errors(
+    error: Exception, code: str, status: int, message: str
+) -> None:
+    """Функция, проверяющая сохранение кода, сообщения и статуса ошибок бронирования"""
+
+    response = api_exception_handler(error, {})
+
+    assert response is not None
+    assert response.status_code == status
+    assert response.data == {"code": code, "message": message, "details": {}}
