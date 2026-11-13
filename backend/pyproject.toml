@@ -7,7 +7,7 @@ dependencies = [
     "django-environ>=0.14.0",
     "djangorestframework>=3.16",
     "gunicorn>=26.2.0",
-    "psycopg[binary]>=3.3.6",
+    "psycopg[binary]>=3.3.8",
     "whitenoise>=6.12.0",
 ]
 
