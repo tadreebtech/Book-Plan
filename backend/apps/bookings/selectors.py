@@ -50,3 +50,13 @@ def booking_list(
 
     secondary_ordering = "-id" if ordering.startswith("-") else "id"
     return bookings.order_by(ordering, secondary_ordering)
+
+
+def booking_get(*, booking_id: int) -> Booking | None:
+    """Функция, получающая бронь с клиентом, ресурсом и менеджером ресурса при её наличии"""
+
+    return (
+        Booking.objects.select_related("resource", "resource__manager", "user")
+        .filter(pk=booking_id)
+        .first()
+    )

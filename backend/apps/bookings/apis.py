@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -8,7 +9,7 @@ from apps.accounts.models import User
 from apps.accounts.permissions import IsAdminRole
 from apps.accounts.selectors import user_get_display_name
 from apps.bookings.models import BookingStatus, ResourceKind
-from apps.bookings.selectors import booking_list
+from apps.bookings.selectors import booking_get, booking_list
 
 
 class BookingListApi(APIView):
@@ -105,3 +106,64 @@ class BookingListApi(APIView):
         )
 
         return Response({"count": count, "page": page, "page_size": page_size, "results": results})
+
+
+class BookingDetailApi(APIView):
+    """Класс, возвращающий администратору карточку брони по идентификатору"""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    class InputSerializer(serializers.Serializer):
+        """Класс, проверяющий идентификатор брони из адреса запроса"""
+
+        id = serializers.IntegerField(min_value=1)
+
+    class OutputSerializer(serializers.Serializer):
+        """Класс, представляющий расширенные данные брони в карточке"""
+
+        class PersonSerializer(serializers.Serializer):
+            """Класс, представляющий клиента или менеджера ресурса"""
+
+            id = serializers.IntegerField()
+            email = serializers.EmailField()
+            name = serializers.SerializerMethodField()
+
+            def get_name(self, user: User) -> str:
+                """Метод, возвращающий полное имя пользователя или его логин"""
+
+                return user_get_display_name(user=user)
+
+        class ResourceSerializer(serializers.Serializer):
+            """Класс, представляющий забронированный ресурс"""
+
+            id = serializers.IntegerField()
+            name = serializers.CharField()
+            kind = serializers.CharField()
+            capacity = serializers.IntegerField()
+            is_active = serializers.BooleanField()
+
+        class PeriodSerializer(serializers.Serializer):
+            """Класс, представляющий начало и конец брони"""
+
+            start_at = serializers.DateTimeField()
+            end_at = serializers.DateTimeField()
+
+        id = serializers.IntegerField()
+        client = PersonSerializer(source="user")
+        resource = ResourceSerializer()
+        provider = PersonSerializer(source="resource.manager", allow_null=True)
+        period = PeriodSerializer(source="*")
+        guests = serializers.IntegerField()
+        status = serializers.CharField()
+        created_at = serializers.DateTimeField()
+        updated_at = serializers.DateTimeField()
+
+    def get(self, request: Request, booking_id: str) -> Response:
+        """Метод, возвращающий расширенные данные выбранной брони"""
+
+        serializer = self.InputSerializer(data={"id": booking_id})
+        serializer.is_valid(raise_exception=True)
+        booking = booking_get(booking_id=serializer.validated_data["id"])
+        if booking is None:
+            raise NotFound()
+        return Response(self.OutputSerializer(booking).data)
