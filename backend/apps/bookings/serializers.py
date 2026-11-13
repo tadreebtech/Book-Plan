@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.bookings.models import Booking, BookingStatus, Resource
+from apps.bookings.models import Booking, BookingStatus, ModerationStatus, Resource, ResourceKind
 
 
 class BookingCreateSerializer(serializers.Serializer):
@@ -44,3 +44,23 @@ class BookingReadSerializer(serializers.ModelSerializer):
         if obj.status == BookingStatus.COMPLETED or obj.end_at <= timezone.now():
             return BookingStatus.COMPLETED
         return BookingStatus.CONFIRMED
+
+
+class AdminListingQuerySerializer(serializers.Serializer):
+    moderation_status = serializers.ChoiceField(choices=ModerationStatus.choices, required=False)
+    category = serializers.ChoiceField(choices=ResourceKind.choices, required=False)
+    provider = serializers.IntegerField(min_value=1, max_value=2**63 - 1, required=False)
+    search = serializers.CharField(required=False, allow_blank=True, max_length=255, default="")
+    page = serializers.IntegerField(min_value=1, default=1)
+    page_size = serializers.IntegerField(min_value=1, max_value=100, default=20)
+
+
+class AdminListingReadSerializer(serializers.ModelSerializer):
+    title = serializers.CharField(source="name", read_only=True)
+    category = serializers.CharField(source="kind", read_only=True)
+    provider = serializers.IntegerField(source="manager_id", read_only=True, allow_null=True)
+
+    class Meta:
+        model = Resource
+        fields = ("id", "title", "category", "provider", "moderation_status", "created_at")
+        read_only_fields = fields
