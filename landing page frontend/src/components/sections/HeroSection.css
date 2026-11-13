@@ -1,0 +1,105 @@
+/**
+ * Hero styles.
+ *
+ * Mobile note: the preview card inside the panel is trimmed to a single row
+ * (tabs + extra rows are hidden) to match the mobile design.
+ */
+
+.hero {
+  background: var(--page);
+  padding: 64px 0 72px;
+}
+
+.hero__inner {
+  display: grid;
+  grid-template-columns: 1.02fr 0.98fr;
+  gap: 56px;
+  align-items: center;
+}
+
+.hero__lead {
+  margin-top: 22px;
+  max-width: 500px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.hero__note {
+  margin-top: 18px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.hero__panel {
+  background: var(--green-soft);
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.panel-note {
+  padding: 12px 4px 2px;
+  font-size: 11px;
+  color: #586a5b;
+}
+
+/* ---- Tablet ---- */
+
+@media (max-width: 1024px) {
+  .hero {
+    padding: 44px 0 52px;
+  }
+
+  .hero__inner {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  .hero__lead {
+    max-width: 52ch;
+  }
+}
+
+/* ---- Mobile ---- */
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 34px 0 44px;
+  }
+
+  .hero__lead {
+    margin-top: 16px;
+    font-size: 14px;
+  }
+
+  .hero__actions {
+    margin-top: 22px;
+  }
+
+  .hero__actions .btn {
+    flex: 1;
+    padding-inline: 12px;
+  }
+
+  .hero__panel {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  /* Compact preview: keep only the first booking, hide tabs. */
+  .hero__panel .bcard__tabs,
+  .hero__panel .brow:nth-child(n + 2) {
+    display: none;
+  }
+
+  .hero__panel .bcard__sub {
+    margin-top: 2px;
+  }
+}
