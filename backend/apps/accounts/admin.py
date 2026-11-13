@@ -16,12 +16,20 @@ class BookPlanUserAdmin(UserAdmin):
 
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    """Класс, показывающий журнал блокировок пользователей в админке"""
+    """Класс, показывающий журнал действий над пользователями в админке"""
 
-    list_display = ("created_at", "actor", "action", "target")
+    list_display = ("created_at", "actor", "action", "target", "old_value", "new_value")
     list_filter = ("action", "created_at")
     search_fields = ("actor__username", "target__username")
-    readonly_fields = ("created_at", "updated_at", "actor", "action", "target")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "actor",
+        "action",
+        "target",
+        "old_value",
+        "new_value",
+    )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         """Метод, запрещающий ручное создание записей аудита"""
