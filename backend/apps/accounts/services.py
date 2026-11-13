@@ -1,6 +1,7 @@
 from django.db import transaction
 from rest_framework.exceptions import PermissionDenied
 
+from apps.accounts.exceptions import SelfAdminDemotionForbidden
 from apps.accounts.models import AuditAction, AuditLog, Role, User
 
 
@@ -48,6 +49,8 @@ def user_role_change(*, actor: User, user_id: int, role: str) -> User:
 
     if not actor.is_active or actor.role != Role.ADMIN:
         raise PermissionDenied()
+    if user_id == actor.pk and role != Role.ADMIN:
+        raise SelfAdminDemotionForbidden()
 
     with transaction.atomic():
         user = User.objects.select_for_update().get(pk=user_id)

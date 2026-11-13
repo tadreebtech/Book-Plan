@@ -46,11 +46,11 @@ def patch_role(client: APIClient, user_id: int, body: dict) -> Response:
     ],
 )
 def test_role_change_updates_role_and_audit(
-        admin_client: APIClient,
-        admin_user: User,
-        value: str,
-        old_role: str,
-        expected_role: str,
+    admin_client: APIClient,
+    admin_user: User,
+    value: str,
+    old_role: str,
+    expected_role: str,
 ) -> None:
     """Функция, проверяющая смену роли и запись автора, цели, старой и новой роли в аудит"""
 
@@ -68,6 +68,36 @@ def test_role_change_updates_role_and_audit(
     assert audit_log.action == AuditAction.CHANGE_ROLE
     assert audit_log.old_value == old_role
     assert audit_log.new_value == expected_role
+
+
+@pytest.mark.parametrize("value", ["Client", "Provider"])
+def test_admin_cannot_remove_own_admin_role(
+    admin_client: APIClient, admin_user: User, value: str
+) -> None:
+    """Функция, проверяющая запрет снять с себя роль администратора даже при наличии другого"""
+
+    User.objects.create_user(username="other-admin", role=Role.ADMIN)
+
+    response = patch_role(admin_client, admin_user.pk, {"role": value})
+    admin_user.refresh_from_db()
+
+    assert response.status_code == 403
+    assert response.data["code"] == "SELF_ADMIN_DEMOTION_FORBIDDEN"
+    assert response.data["message"] == (
+        "An administrator cannot remove the administrator role from themselves."
+    )
+    assert admin_user.role == Role.ADMIN
+    assert AuditLog.objects.count() == 0
+
+
+def test_admin_can_keep_own_admin_role(admin_client: APIClient, admin_user: User) -> None:
+    """Функция, проверяющая повторную установку собственной роли администратора"""
+
+    response = patch_role(admin_client, admin_user.pk, {"role": "Admin"})
+
+    assert response.status_code == 200
+    assert response.data == {"id": admin_user.pk, "role": Role.ADMIN}
+    assert AuditLog.objects.count() == 0
 
 
 def test_role_change_applies_to_next_request(admin_client: APIClient, target_user: User) -> None:
