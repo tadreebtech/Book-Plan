@@ -25,3 +25,27 @@ class User(BaseModel, AbstractUser):
                 condition=models.Q(role__in=Role.values), name="user_role_valid"
             ),
         ]
+
+
+class AuditAction(models.TextChoices):
+    """Класс, перечисляющий действия администратора над статусом пользователя"""
+
+    USER_BLOCKED = "USER_BLOCKED", "Пользователь заблокирован"
+    USER_UNBLOCKED = "USER_UNBLOCKED", "Пользователь разблокирован"
+
+
+class AuditLog(BaseModel):
+    """Класс, сохраняющий автора, действие, пользователя и время изменения статуса"""
+
+    actor = models.ForeignKey(User, on_delete=models.PROTECT, related_name="status_actions")
+    action = models.CharField(max_length=32, choices=AuditAction.choices)
+    target = models.ForeignKey(User, on_delete=models.PROTECT, related_name="status_audit_log")
+
+    class Meta:
+        """Класс, ограничивающий допустимые действия в журнале аудита"""
+
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(action__in=AuditAction.values), name="audit_action_valid"
+            ),
+        ]
