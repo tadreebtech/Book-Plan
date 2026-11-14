@@ -1,0 +1,55 @@
+/**
+ * Header layout + navigation.
+ * On tablet/mobile the nav and the primary CTA are hidden (see the media query).
+ */
+
+.site-header {
+  position: relative;
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  min-height: 76px;
+}
+
+.nav {
+  display: flex;
+  gap: 28px;
+  margin-inline-start: 64px;
+}
+
+.nav a {
+  font-size: 13.5px;
+  color: var(--muted);
+  transition: color 0.18s ease;
+}
+
+@media (hover: hover) {
+  .nav a:hover {
+    color: var(--ink);
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-inline-start: auto;
+}
+
+@media (max-width: 1024px) {
+  .site-header__inner {
+    gap: 24px;
+    min-height: 68px;
+  }
+
+  .nav,
+  .header-actions .btn--primary {
+    display: none;
+  }
+}

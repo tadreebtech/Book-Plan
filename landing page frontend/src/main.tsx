@@ -1,0 +1,23 @@
+/**
+ * Entry point.
+ * Global styles are loaded here, in order: design tokens → base layer.
+ * Component styles are imported by their own components.
+ */
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './styles/tokens.css'
+import './styles/base.css'
+import App from './App'
+
+const rootElement = document.getElementById('root')
+
+if (!rootElement) {
+  throw new Error('Root element #root not found in index.html')
+}
+
+createRoot(rootElement).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)

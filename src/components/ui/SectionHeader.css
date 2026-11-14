@@ -1,0 +1,31 @@
+/**
+ * SectionHeader styles: two-column heading row (title / supporting text).
+ */
+
+.section__head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: end;
+  margin-bottom: 40px;
+}
+
+.section__lead {
+  max-width: 42ch;
+  padding-bottom: 4px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+@media (max-width: 1024px) {
+  .section__head {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .section__lead {
+    max-width: 52ch;
+  }
+}

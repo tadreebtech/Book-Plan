@@ -1,0 +1,59 @@
+/**
+ * Shared button styles.
+ * Class contract: `.btn` + modifier `--primary | --ghost | --light` + `--sm`.
+ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding-inline: 20px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.btn--sm {
+  height: 36px;
+  padding-inline: 16px;
+  font-size: 12.5px;
+}
+
+.btn--primary {
+  background: var(--green);
+  color: #fff;
+}
+
+.btn--ghost {
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--ink);
+}
+
+.btn--light {
+  background: #fff;
+  color: var(--green-dark);
+}
+
+@media (hover: hover) {
+  .btn--primary:hover {
+    background: var(--green-hover);
+  }
+
+  .btn--ghost:hover {
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .btn--light:hover {
+    background: #eef3ee;
+  }
+}
