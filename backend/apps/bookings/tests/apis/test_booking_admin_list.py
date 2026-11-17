@@ -238,13 +238,27 @@ def test_booking_list_validates_query_parameters(admin_client: APIClient, params
 
 
 @pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
-def test_booking_list_is_read_only(admin_client: APIClient, method: str) -> None:
-    """Функция, проверяющая, что список броней нельзя изменить через API"""
+def test_booking_list_is_read_only(
+    admin_client: APIClient, room: Resource, client_user: User, method: str
+) -> None:
+    """Функция, проверяющая сохранность броней после запрещённых запросов с данными"""
 
-    response = getattr(admin_client, method)(reverse("admin-booking-list"), {})
+    _book(resource=room, user=client_user, start=_at(1, 10), end=_at(1, 12))
+    before = list(Booking.objects.order_by("pk").values())
+    payload = {
+        "resource": room.id,
+        "user": client_user.id,
+        "start_at": _at(2, 10).isoformat(),
+        "end_at": _at(2, 12).isoformat(),
+        "guests": 2,
+        "status": BookingStatus.CANCELLED,
+    }
+
+    response = getattr(admin_client, method)(reverse("admin-booking-list"), payload, format="json")
 
     assert response.status_code == 405
     assert response.data["code"] == "METHOD_NOT_ALLOWED"
+    assert list(Booking.objects.order_by("pk").values()) == before
 
 
 @pytest.mark.parametrize("role", [Role.CLIENT, Role.MANAGER])
@@ -272,3 +286,91 @@ def test_booking_list_rejects_anonymous_and_inactive_admin(admin_user: User) -> 
 
     assert anonymous_response.status_code in (401, 403)
     assert inactive_response.status_code == 403
+
+
+def test_booking_list_combines_all_filters(
+    admin_client: APIClient, room: Resource, manager: User, client_user: User
+) -> None:
+    """Функция, проверяющая одновременное применение всех фильтров списка"""
+
+    other_client = User.objects.create_user(username="other-client")
+    other_manager = User.objects.create_user(username="other-manager", role=Role.MANAGER)
+    other_category = Resource.objects.create(
+        kind=ResourceKind.HOTEL_ROOM, name="Номер", capacity=4, manager=manager
+    )
+    other_provider = Resource.objects.create(
+        kind=ResourceKind.UNIVERSITY_ROOM,
+        name="Другая аудитория",
+        capacity=4,
+        manager=other_manager,
+    )
+    wanted = _book(resource=room, user=client_user, start=_at(3, 10), end=_at(3, 12))
+    _book(resource=room, user=other_client, start=_at(3, 12), end=_at(3, 14))
+    _book(resource=other_category, user=client_user, start=_at(3, 10), end=_at(3, 12))
+    _book(resource=other_provider, user=client_user, start=_at(3, 10), end=_at(3, 12))
+    _book(resource=room, user=client_user, start=_at(3, 14), end=_at(3, 16), status="CANCELLED")
+    _book(resource=room, user=client_user, start=_at(1, 10), end=_at(1, 12))
+    _book(resource=room, user=client_user, start=_at(5, 10), end=_at(5, 12))
+
+    response = admin_client.get(
+        reverse("admin-booking-list"),
+        {
+            "status": "CONFIRMED",
+            "category": "UNIVERSITY_ROOM",
+            "provider": manager.id,
+            "client": client_user.id,
+            "date_from": "2026-12-02",
+            "date_to": "2026-12-04",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.data["count"] == 1
+    assert _ids(response) == [wanted.id]
+
+
+def test_booking_list_date_filter_respects_midnight_boundaries(
+    admin_client: APIClient, room: Resource, client_user: User
+) -> None:
+    """Функция, проверяющая границы суток при фильтрации по одному дню"""
+
+    _book(resource=room, user=client_user, start=_at(1, 22), end=_at(2, 0))
+    at_start = _book(resource=room, user=client_user, start=_at(2, 0), end=_at(2, 2))
+    at_end = _book(resource=room, user=client_user, start=_at(2, 22), end=_at(3, 0))
+    _book(resource=room, user=client_user, start=_at(3, 0), end=_at(3, 2))
+
+    response = admin_client.get(
+        reverse("admin-booking-list"), {"date_from": "2026-12-02", "date_to": "2026-12-02"}
+    )
+
+    assert response.status_code == 200
+    assert response.data["count"] == 2
+    assert set(_ids(response)) == {at_start.id, at_end.id}
+
+
+@pytest.mark.parametrize("ordering", ["created_at", "-created_at", "start_at", "-start_at"])
+def test_booking_list_paginates_tied_sort_values(
+    admin_client: APIClient, room: Resource, client_user: User, ordering: str
+) -> None:
+    """Функция, проверяющая полноту и стабильность страниц при одинаковых датах сортировки"""
+
+    bookings = [
+        _book(resource=room, user=client_user, start=_at(1, 10), end=_at(1, 12), status="CANCELLED")
+        for _ in range(5)
+    ]
+    Booking.objects.filter(pk__in=[booking.pk for booking in bookings]).update(created_at=_at(1, 9))
+    url = reverse("admin-booking-list")
+    pages = [
+        admin_client.get(url, {"ordering": ordering, "page": page, "page_size": 2})
+        for page in range(1, 4)
+    ]
+
+    assert [response.status_code for response in pages] == [200, 200, 200]
+    assert [response.data["count"] for response in pages] == [5, 5, 5]
+    assert [len(_ids(response)) for response in pages] == [2, 2, 1]
+    returned_ids = [booking_id for response in pages for booking_id in _ids(response)]
+    assert len(set(returned_ids)) == 5
+    assert set(returned_ids) == {booking.id for booking in bookings}
+    repeated = admin_client.get(url, {"ordering": ordering, "page": 2, "page_size": 2})
+    assert repeated.status_code == 200
+    assert _ids(repeated) == _ids(pages[1])
