@@ -1,3 +1,5 @@
+from base64 import b64encode
+
 import pytest
 from django.urls import reverse
 from django.utils import timezone
@@ -6,6 +8,12 @@ from rest_framework.test import APIClient
 from apps.accounts.models import AuditAction, AuditLog, Role, User
 
 pytestmark = pytest.mark.django_db
+
+UNAUTHORIZED_RESPONSE = {
+    "code": "UNAUTHORIZED",
+    "message": "Authentication is required.",
+    "details": {},
+}
 
 
 @pytest.fixture
@@ -29,6 +37,75 @@ def target_user() -> User:
     """Функция, создающая пользователя для изменения статуса"""
 
     return User.objects.create_user(username="target", role=Role.CLIENT)
+
+
+@pytest.fixture
+def target_password(target_user: User) -> str:
+    """Функция, задающая пароль пользователя для проверки входа"""
+
+    password = "test-pass"
+    target_user.set_password(password)
+    target_user.save(update_fields=["password"])
+    return password
+
+
+def _basic_auth_header(*, username: str, password: str) -> str:
+    """Функция, формирующая заголовок Basic Authentication для запроса"""
+
+    credentials = b64encode(f"{username}:{password}".encode()).decode()
+    return f"Basic {credentials}"
+
+
+def test_blocked_user_cannot_log_in_or_use_existing_session(
+    admin_client: APIClient, target_user: User, target_password: str
+) -> None:
+    """Функция, проверяющая отказ во входе и доступе до разблокировки"""
+
+    credentials = {"username": target_user.username, "password": target_password}
+    bookings_url = reverse("booking-list")
+    existing_session = APIClient()
+    fresh_session = APIClient()
+
+    assert existing_session.login(**credentials)
+    assert existing_session.get(bookings_url).status_code == 200
+
+    assert admin_client.post(reverse("admin-user-block", args=[target_user.pk])).status_code == 200
+
+    assert not fresh_session.login(**credentials)
+    denied_read = existing_session.get(bookings_url)
+    denied_write = existing_session.post(bookings_url, {}, format="json")
+    for response in (denied_read, denied_write):
+        assert response.status_code == 403
+        assert response.data == UNAUTHORIZED_RESPONSE
+
+    response = admin_client.post(reverse("admin-user-unblock", args=[target_user.pk]))
+    assert response.status_code == 200
+    assert fresh_session.login(**credentials)
+    assert fresh_session.get(bookings_url).status_code == 200
+    assert existing_session.get(bookings_url).status_code == 200
+
+
+def test_basic_authentication_rejects_blocked_user_without_revealing_status(
+    admin_client: APIClient, target_user: User, target_password: str
+) -> None:
+    """Функция, проверяющая одинаковый ответ при блокировке и неверных учётных данных"""
+
+    client = APIClient()
+    bookings_url = reverse("booking-list")
+    valid_auth = _basic_auth_header(username=target_user.username, password=target_password)
+    wrong_password = _basic_auth_header(username=target_user.username, password="wrong-password")
+    unknown_user = _basic_auth_header(username="unknown-user", password=target_password)
+
+    assert client.get(bookings_url, HTTP_AUTHORIZATION=valid_auth).status_code == 200
+    denied_password = client.get(bookings_url, HTTP_AUTHORIZATION=wrong_password)
+    denied_username = client.get(bookings_url, HTTP_AUTHORIZATION=unknown_user)
+
+    assert admin_client.post(reverse("admin-user-block", args=[target_user.pk])).status_code == 200
+    denied_blocked = client.get(bookings_url, HTTP_AUTHORIZATION=valid_auth)
+
+    for response in (denied_blocked, denied_password, denied_username):
+        assert response.status_code == 403
+        assert response.data == UNAUTHORIZED_RESPONSE
 
 
 def test_block_creates_audit_record(
