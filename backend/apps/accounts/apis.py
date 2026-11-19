@@ -8,7 +8,18 @@ from rest_framework.views import APIView
 from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsAdminRole
 from apps.accounts.selectors import user_get, user_get_display_name, user_list
-from apps.accounts.services import user_block, user_unblock
+from apps.accounts.services import user_block, user_role_change, user_unblock
+
+
+def role_parse(value: str) -> str:
+    """Функция, приводящая название роли из запроса к значению, хранимому в базе данных"""
+
+    role = value.upper()
+    if role == "PROVIDER":
+        role = Role.MANAGER
+    if role not in Role.values:
+        raise serializers.ValidationError("Unknown user role.")
+    return role
 
 
 class UserListApi(APIView):
@@ -32,12 +43,7 @@ class UserListApi(APIView):
         def validate_role(self, value: str) -> str:
             """Метод, приводящий название роли к значению, используемому в базе данных"""
 
-            role = value.upper()
-            if role == "PROVIDER":
-                role = Role.MANAGER
-            if role not in Role.values:
-                raise serializers.ValidationError("Unknown user role.")
-            return role
+            return role_parse(value)
 
     class OutputSerializer(serializers.Serializer):
         """Класс, представляющий базовые данные пользователя в ответе API"""
@@ -169,6 +175,45 @@ class UserUnblockApi(APIView):
         serializer.is_valid(raise_exception=True)
         try:
             user = user_unblock(actor=request.user, user_id=serializer.validated_data["id"])
+        except User.DoesNotExist as exc:
+            raise NotFound() from exc
+        return Response(self.OutputSerializer(user).data)
+
+
+class UserRoleChangeApi(APIView):
+    """Класс, меняющий роль выбранного пользователя по запросу администратора"""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    class InputSerializer(serializers.Serializer):
+        """Класс, проверяющий идентификатор пользователя и новую роль"""
+
+        id = serializers.IntegerField(min_value=1)
+        role = serializers.CharField()
+
+        def validate_role(self, value: str) -> str:
+            """Метод, приводящий название роли к значению, используемому в базе данных"""
+
+            return role_parse(value)
+
+    class OutputSerializer(serializers.Serializer):
+        """Класс, представляющий пользователя и его роль после изменения"""
+
+        id = serializers.IntegerField()
+        role = serializers.CharField()
+
+    def patch(self, request: Request, user_id: str) -> Response:
+        """Метод, меняющий роль пользователя и возвращающий его текущую роль"""
+
+        role = request.data.get("role") if isinstance(request.data, dict) else None
+        serializer = self.InputSerializer(data={"id": user_id, "role": role})
+        serializer.is_valid(raise_exception=True)
+        try:
+            user = user_role_change(
+                actor=request.user,
+                user_id=serializer.validated_data["id"],
+                role=serializer.validated_data["role"],
+            )
         except User.DoesNotExist as exc:
             raise NotFound() from exc
         return Response(self.OutputSerializer(user).data)
