@@ -13,6 +13,34 @@ from apps.bookings.selectors import booking_get, booking_list
 from apps.common.pagination import MAX_DB_ID, PaginationInputSerializer, paginated_response_data
 
 
+class BookingPersonSerializer(serializers.Serializer):
+    """Класс, представляющий клиента брони или менеджера ресурса"""
+
+    id = serializers.IntegerField()
+    email = serializers.EmailField()
+    name = serializers.SerializerMethodField()
+
+    def get_name(self, user: User) -> str:
+        """Метод, возвращающий полное имя пользователя или его логин"""
+
+        return user_get_display_name(user=user)
+
+
+class BookingResourceSerializer(serializers.Serializer):
+    """Класс, представляющий забронированный ресурс"""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    kind = serializers.CharField()
+
+
+class BookingPeriodSerializer(serializers.Serializer):
+    """Класс, представляющий начало и конец брони"""
+
+    start_at = serializers.DateTimeField()
+    end_at = serializers.DateTimeField()
+
+
 class BookingListApi(APIView):
     """Класс, возвращающий администратору список всех броней платформы только для чтения"""
 
@@ -46,35 +74,10 @@ class BookingListApi(APIView):
     class OutputSerializer(serializers.Serializer):
         """Класс, представляющий основные данные брони в списке"""
 
-        class ClientSerializer(serializers.Serializer):
-            """Класс, представляющий клиента, оформившего бронь"""
-
-            id = serializers.IntegerField()
-            email = serializers.EmailField()
-            name = serializers.SerializerMethodField()
-
-            def get_name(self, user: User) -> str:
-                """Метод, возвращающий полное имя клиента или его логин"""
-
-                return user_get_display_name(user=user)
-
-        class ResourceSerializer(serializers.Serializer):
-            """Класс, представляющий забронированный ресурс"""
-
-            id = serializers.IntegerField()
-            name = serializers.CharField()
-            kind = serializers.CharField()
-
-        class PeriodSerializer(serializers.Serializer):
-            """Класс, представляющий начало и конец брони"""
-
-            start_at = serializers.DateTimeField()
-            end_at = serializers.DateTimeField()
-
         id = serializers.IntegerField()
-        client = ClientSerializer(source="user")
-        resource = ResourceSerializer()
-        period = PeriodSerializer(source="*")
+        client = BookingPersonSerializer(source="user")
+        resource = BookingResourceSerializer()
+        period = BookingPeriodSerializer(source="*")
         status = serializers.CharField()
         created_at = serializers.DateTimeField()
 
@@ -112,43 +115,22 @@ class BookingDetailApi(APIView):
     class InputSerializer(serializers.Serializer):
         """Класс, проверяющий идентификатор брони из адреса запроса"""
 
-        id = serializers.IntegerField(min_value=1)
+        id = serializers.IntegerField(min_value=1, max_value=MAX_DB_ID)
 
     class OutputSerializer(serializers.Serializer):
         """Класс, представляющий расширенные данные брони в карточке"""
 
-        class PersonSerializer(serializers.Serializer):
-            """Класс, представляющий клиента или менеджера ресурса"""
+        class ResourceSerializer(BookingResourceSerializer):
+            """Класс, дополняющий данные ресурса вместимостью и доступностью"""
 
-            id = serializers.IntegerField()
-            email = serializers.EmailField()
-            name = serializers.SerializerMethodField()
-
-            def get_name(self, user: User) -> str:
-                """Метод, возвращающий полное имя пользователя или его логин"""
-
-                return user_get_display_name(user=user)
-
-        class ResourceSerializer(serializers.Serializer):
-            """Класс, представляющий забронированный ресурс"""
-
-            id = serializers.IntegerField()
-            name = serializers.CharField()
-            kind = serializers.CharField()
             capacity = serializers.IntegerField()
             is_active = serializers.BooleanField()
 
-        class PeriodSerializer(serializers.Serializer):
-            """Класс, представляющий начало и конец брони"""
-
-            start_at = serializers.DateTimeField()
-            end_at = serializers.DateTimeField()
-
         id = serializers.IntegerField()
-        client = PersonSerializer(source="user")
+        client = BookingPersonSerializer(source="user")
         resource = ResourceSerializer()
-        provider = PersonSerializer(source="resource.manager", allow_null=True)
-        period = PeriodSerializer(source="*")
+        provider = BookingPersonSerializer(source="resource.manager", allow_null=True)
+        period = BookingPeriodSerializer(source="*")
         guests = serializers.IntegerField()
         status = serializers.CharField()
         created_at = serializers.DateTimeField()
