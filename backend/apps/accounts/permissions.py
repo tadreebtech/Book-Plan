@@ -12,3 +12,13 @@ class IsAdminRole(BasePermission):
 
         user = request.user
         return bool(user.is_authenticated and user.is_active and user.role == Role.ADMIN)
+
+
+class IsManagerRole(BasePermission):
+    """Класс, разрешающий доступ активному менеджеру ресурса"""
+
+    def has_permission(self, request: Request, view: object) -> bool:
+        """Метод, проверяющий роль и состояние поставщика"""
+
+        user = request.user
+        return bool(user.is_authenticated and user.is_active and user.role == Role.MANAGER)
