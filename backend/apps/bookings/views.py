@@ -1,9 +1,8 @@
-from django.http import Http404
 from django.utils.decorators import method_decorator
 from django.utils.translation import override
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import APIException, NotFound, ValidationError
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 
 from apps.bookings.serializers import BookingCreateSerializer, BookingReadSerializer
@@ -46,32 +45,3 @@ class BookingViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
     def cancel(self, request, pk=None):
         booking = cancel_booking(user=request.user, booking_id=self._parse_booking_id(pk))
         return Response(BookingReadSerializer(booking).data)
-
-    def handle_exception(self, exc):
-        response = super().handle_exception(exc)
-        if response is None:
-            return None
-
-        raw = response.data
-        if isinstance(raw, dict) and "detail" in raw:
-            message = str(raw["detail"])
-            details = {}
-        elif isinstance(raw, (dict, list)):
-            message = "Invalid request data."
-            details = raw
-        else:
-            message = str(raw)
-            details = {}
-
-        if isinstance(exc, ValidationError):
-            code = "VALIDATION_ERROR"
-        elif isinstance(exc, Http404):
-            code = "NOT_FOUND"
-        elif isinstance(exc, APIException):
-            codes = exc.get_codes()
-            code = codes.upper() if isinstance(codes, str) else "API_ERROR"
-        else:
-            code = "ERROR"
-
-        response.data = {"error": {"code": code, "message": message, "details": details}}
-        return response
