@@ -3,9 +3,19 @@ from django.utils.translation import override
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from apps.bookings.serializers import BookingCreateSerializer, BookingReadSerializer
+from apps.accounts.permissions import IsAdminRole
+from apps.bookings.selectors import resource_list
+from apps.bookings.serializers import (
+    AdminListingQuerySerializer,
+    AdminListingReadSerializer,
+    BookingCreateSerializer,
+    BookingReadSerializer,
+)
 from apps.bookings.services import cancel_booking, create_booking, list_user_bookings
 
 
@@ -45,3 +55,26 @@ class BookingViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
     def cancel(self, request, pk=None):
         booking = cancel_booking(user=request.user, booking_id=self._parse_booking_id(pk))
         return Response(BookingReadSerializer(booking).data)
+
+
+class AdminListingListApi(APIView):
+    """Класс, возвращающий администратору список объявлений"""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get(self, request: Request) -> Response:
+        """Метод, проверяющий параметры и возвращающий страницу объявлений"""
+
+        query = AdminListingQuerySerializer(data=request.query_params.dict())
+        query.is_valid(raise_exception=True)
+        params = query.validated_data
+
+        count, listings = resource_list(**params)
+        return Response(
+            {
+                "count": count,
+                "page": params["page"],
+                "page_size": params["page_size"],
+                "results": AdminListingReadSerializer(listings, many=True).data,
+            }
+        )

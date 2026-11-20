@@ -223,6 +223,8 @@ def test_booking_list_orders_by_creation_and_start(
         {"date_from": "2026-12-05", "date_to": "2026-12-01"},
         {"provider": "abc"},
         {"client": "0"},
+        {"provider": "9223372036854775808"},
+        {"client": "9223372036854775808"},
         {"ordering": "guests"},
         {"page": "0"},
         {"page_size": "101"},
@@ -270,5 +272,7 @@ def test_booking_list_rejects_anonymous_and_inactive_admin(admin_user: User) -> 
     client.force_authenticate(user=admin_user)
     inactive_response = client.get(reverse("admin-booking-list"))
 
-    assert anonymous_response.status_code in (401, 403)
+    assert anonymous_response.status_code == 403
+    assert anonymous_response.data["code"] == "UNAUTHORIZED"
     assert inactive_response.status_code == 403
+    assert inactive_response.data["code"] == "ACCESS_DENIED"
