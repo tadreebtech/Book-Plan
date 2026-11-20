@@ -133,10 +133,11 @@ def test_resource_moderation_migration_preserves_existing_visibility():
         assert set(schema_resource.objects.values_list("moderation_status", flat=True)) == {
             ModerationStatus.PENDING
         }
-        MigrationExecutor(connection).migrate(after)
+        migrated_apps = MigrationExecutor(connection).migrate(after).apps
+        migrated_resource = migrated_apps.get_model("bookings", "Resource")
 
-        active_listing = Resource.objects.get(pk=active.pk)
-        inactive_listing = Resource.objects.get(pk=inactive.pk)
+        active_listing = migrated_resource.objects.get(pk=active.pk)
+        inactive_listing = migrated_resource.objects.get(pk=inactive.pk)
         assert active_listing.moderation_status == ModerationStatus.APPROVED
         assert active_listing.is_active is True
         assert inactive_listing.moderation_status == ModerationStatus.HIDDEN
@@ -146,7 +147,7 @@ def test_resource_moderation_migration_preserves_existing_visibility():
         active_listing.full_clean()
         inactive_listing.full_clean()
 
-        new_listing = Resource.objects.create(
+        new_listing = migrated_resource.objects.create(
             name="New room", kind=ResourceKind.HOTEL_ROOM, capacity=2
         )
         new_listing.refresh_from_db()

@@ -17,3 +17,10 @@ class BookingConflict(APIException):
     status_code = 409
     default_detail = "This time slot is already booked."
     default_code = "BOOKING_CONFLICT"
+
+
+class CategoryInUse(APIException):
+    """Класс, сообщающий об объявлениях, препятствующих удалению категории"""
+
+    status_code = 409
+    default_code = "CATEGORY_IN_USE"
