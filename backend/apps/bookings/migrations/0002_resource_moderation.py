@@ -5,16 +5,6 @@ from django.conf import settings
 from django.db import migrations, models
 
 
-def populate_moderation_status(apps, schema_editor):
-    resource = apps.get_model("bookings", "Resource")
-    resource.objects.using(schema_editor.connection.alias).update(
-        moderation_status=models.Case(
-            models.When(is_active=True, then=models.Value("APPROVED")),
-            default=models.Value("HIDDEN"),
-        )
-    )
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -35,7 +25,7 @@ class Migration(migrations.Migration):
                 blank=True,
                 limit_choices_to={"role": "ADMIN"},
                 null=True,
-                on_delete=django.db.models.deletion.SET_NULL,
+                on_delete=django.db.models.deletion.PROTECT,
                 related_name="moderated_resources",
                 to=settings.AUTH_USER_MODEL,
             ),
@@ -66,5 +56,36 @@ class Migration(migrations.Migration):
                 name="resource_moderation_status_valid",
             ),
         ),
-        migrations.RunPython(populate_moderation_status, migrations.RunPython.noop),
+        migrations.AddConstraint(
+            model_name="resource",
+            constraint=models.CheckConstraint(
+                condition=(
+                    models.Q(moderation_status="REJECTED", rejection_reason__regex=r"\S")
+                    | (~models.Q(moderation_status="REJECTED") & models.Q(rejection_reason=""))
+                ),
+                name="resource_rejection_reason_valid",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="resource",
+            constraint=models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        moderation_status="PENDING",
+                        moderated_at__isnull=True,
+                        moderated_by__isnull=True,
+                    )
+                    | (
+                        ~models.Q(moderation_status="PENDING")
+                        & models.Q(moderated_at__isnull=False, moderated_by__isnull=False)
+                    )
+                    | models.Q(
+                        moderation_status__in=["APPROVED", "HIDDEN"],
+                        moderated_at__isnull=True,
+                        moderated_by__isnull=True,
+                    )
+                ),
+                name="resource_moderation_details_valid",
+            ),
+        ),
     ]
