@@ -46,15 +46,20 @@ class BookingReadSerializer(serializers.ModelSerializer):
         return BookingStatus.CONFIRMED
 
 
-class AdminListingQuerySerializer(serializers.Serializer):
-    """Класс, проверяющий параметры фильтрации и пагинации объявлений"""
+class ListingQuerySerializer(serializers.Serializer):
+    """Класс, проверяющий общие параметры поиска и пагинации объявлений"""
 
-    moderation_status = serializers.ChoiceField(choices=ModerationStatus.choices, required=False)
     category = serializers.ChoiceField(choices=ResourceKind.choices, required=False)
-    provider = serializers.IntegerField(min_value=1, max_value=2**63 - 1, required=False)
     search = serializers.CharField(required=False, allow_blank=True, max_length=255, default="")
     page = serializers.IntegerField(min_value=1, default=1)
     page_size = serializers.IntegerField(min_value=1, max_value=100, default=20)
+
+
+class AdminListingQuerySerializer(ListingQuerySerializer):
+    """Класс, проверяющий параметры административного списка объявлений"""
+
+    moderation_status = serializers.ChoiceField(choices=ModerationStatus.choices, required=False)
+    provider = serializers.IntegerField(min_value=1, max_value=2**63 - 1, required=False)
 
 
 class AdminListingReadSerializer(serializers.ModelSerializer):
