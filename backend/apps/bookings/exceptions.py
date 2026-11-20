@@ -24,3 +24,10 @@ class CategoryInUse(APIException):
 
     status_code = 409
     default_code = "CATEGORY_IN_USE"
+
+
+class ReferenceInUse(APIException):
+    """Класс, сообщающий об использовании значения справочника"""
+
+    status_code = 409
+    default_code = "REFERENCE_IN_USE"

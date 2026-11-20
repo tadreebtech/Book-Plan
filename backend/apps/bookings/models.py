@@ -67,6 +67,30 @@ class Category(BaseModel):
         return self.name
 
 
+class Reference(BaseModel):
+    """Класс, описывающий значение базового справочника"""
+
+    type = models.CharField(max_length=64, db_index=True)
+    value = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        """Класс, задающий ограничения и порядок значений справочников"""
+
+        ordering = ("type", "value", "pk")
+        constraints = [
+            models.CheckConstraint(condition=Q(type__regex=r"\S"), name="reference_type_not_blank"),
+            models.CheckConstraint(
+                condition=Q(value__regex=r"\S"), name="reference_value_not_blank"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        """Метод, возвращающий значение справочника"""
+
+        return self.value
+
+
 class Resource(BaseModel):
     """Класс, описывающий ресурс для бронирования: аудиторию, столик или номер"""
 
@@ -84,6 +108,7 @@ class Resource(BaseModel):
     status = models.CharField(
         max_length=16, choices=ResourceStatus.choices, default=ResourceStatus.ACTIVE
     )
+    references = models.ManyToManyField(Reference, blank=True, related_name="resources")
     manager = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
