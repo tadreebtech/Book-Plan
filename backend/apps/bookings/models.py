@@ -112,6 +112,40 @@ class Resource(BaseModel):
         return self.name
 
 
+class ResourceModerationLog(BaseModel):
+    """Класс, сохраняющий историю решений по объявлению"""
+
+    resource_id = models.PositiveBigIntegerField(db_index=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="listing_moderation_actions",
+    )
+    previous_status = models.CharField(max_length=16, choices=ModerationStatus.choices)
+    moderation_status = models.CharField(max_length=16, choices=ModerationStatus.choices)
+    rejection_reason = models.TextField(blank=True, default="")
+
+    class Meta:
+        """Класс, ограничивающий допустимые статусы в журнале модерации"""
+
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(previous_status__in=ModerationStatus.values),
+                name="resource_moderation_log_previous_status_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    moderation_status__in=[
+                        ModerationStatus.APPROVED,
+                        ModerationStatus.REJECTED,
+                        ModerationStatus.HIDDEN,
+                    ]
+                ),
+                name="resource_moderation_log_status_valid",
+            ),
+        ]
+
+
 class Booking(BaseModel):
     """Класс, описывающий бронь ресурса клиентом на отрезок времени"""
 
