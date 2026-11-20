@@ -130,7 +130,7 @@ def test_booking_detail_returns_not_found_for_missing_booking(admin_client: APIC
     }
 
 
-@pytest.mark.parametrize("booking_id", ["abc", "0", "-1"])
+@pytest.mark.parametrize("booking_id", ["abc", "0", "-1", "9223372036854775808"])
 def test_booking_detail_validates_identifier(admin_client: APIClient, booking_id: str) -> None:
     """Функция, проверяющая ошибку проверки данных для неверного идентификатора"""
 
@@ -179,4 +179,5 @@ def test_booking_detail_rejects_anonymous_user(client_user: User) -> None:
 
     response = APIClient().get(reverse("admin-booking-detail", args=[booking.id]))
 
-    assert response.status_code in (401, 403)
+    assert response.status_code == 403
+    assert response.data["code"] == "UNAUTHORIZED"
