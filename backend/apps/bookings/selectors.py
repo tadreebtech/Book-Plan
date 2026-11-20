@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -56,7 +56,7 @@ def booking_list(
     хотя бы частично приходится на эти дни
     """
 
-    bookings = Booking.objects.select_related("resource", "resource__manager", "user")
+    bookings = Booking.objects.select_related("resource", "user")
 
     if status is not None:
         bookings = bookings.filter(status=status)
@@ -65,7 +65,7 @@ def booking_list(
         bookings = bookings.filter(end_at__gt=_day_start(day=date_from))
 
     if date_to is not None:
-        bookings = bookings.filter(start_at__lt=_day_start(day=date_to + timedelta(days=1)))
+        bookings = bookings.filter(start_at__date__lte=date_to)
 
     if category is not None:
         bookings = bookings.filter(resource__kind=category)
