@@ -47,6 +47,8 @@ class BookingReadSerializer(serializers.ModelSerializer):
 
 
 class AdminListingQuerySerializer(serializers.Serializer):
+    """Класс, проверяющий параметры фильтрации и пагинации объявлений"""
+
     moderation_status = serializers.ChoiceField(choices=ModerationStatus.choices, required=False)
     category = serializers.ChoiceField(choices=ResourceKind.choices, required=False)
     provider = serializers.IntegerField(min_value=1, max_value=2**63 - 1, required=False)
@@ -56,11 +58,15 @@ class AdminListingQuerySerializer(serializers.Serializer):
 
 
 class AdminListingReadSerializer(serializers.ModelSerializer):
+    """Класс, представляющий объявление в административном списке"""
+
     title = serializers.CharField(source="name", read_only=True)
     category = serializers.CharField(source="kind", read_only=True)
     provider = serializers.IntegerField(source="manager_id", read_only=True, allow_null=True)
 
     class Meta:
+        """Класс, задающий поля объявления в ответе API"""
+
         model = Resource
         fields = ("id", "title", "category", "provider", "moderation_status", "created_at")
         read_only_fields = fields

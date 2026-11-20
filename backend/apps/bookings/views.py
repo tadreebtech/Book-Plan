@@ -3,12 +3,13 @@ from django.utils.translation import override
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdminRole
-from apps.bookings.models import Resource
+from apps.bookings.selectors import resource_list
 from apps.bookings.serializers import (
     AdminListingQuerySerializer,
     AdminListingReadSerializer,
@@ -57,30 +58,23 @@ class BookingViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
 
 
 class AdminListingListApi(APIView):
-    permission_classes = [IsAdminRole]
+    """Класс, возвращающий администратору список объявлений"""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
 
     def get(self, request: Request) -> Response:
+        """Метод, проверяющий параметры и возвращающий страницу объявлений"""
+
         query = AdminListingQuerySerializer(data=request.query_params.dict())
         query.is_valid(raise_exception=True)
         params = query.validated_data
 
-        listings = Resource.objects.order_by("-created_at", "-pk")
-        if "moderation_status" in params:
-            listings = listings.filter(moderation_status=params["moderation_status"])
-        if "category" in params:
-            listings = listings.filter(kind=params["category"])
-        if "provider" in params:
-            listings = listings.filter(manager_id=params["provider"])
-        if params["search"]:
-            listings = listings.filter(name__icontains=params["search"])
-
-        count = listings.count()
-        page = params["page"]
-        page_size = params["page_size"]
-        start = (page - 1) * page_size
-        results = (
-            AdminListingReadSerializer(listings[start : start + page_size], many=True).data
-            if start < count
-            else []
+        count, listings = resource_list(**params)
+        return Response(
+            {
+                "count": count,
+                "page": params["page"],
+                "page_size": params["page_size"],
+                "results": AdminListingReadSerializer(listings, many=True).data,
+            }
         )
-        return Response({"count": count, "page": page, "page_size": page_size, "results": results})
