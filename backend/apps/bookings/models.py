@@ -31,6 +31,13 @@ class BookingStatus(models.TextChoices):
     COMPLETED = "COMPLETED", "Завершено"
 
 
+class ResourceStatus(models.TextChoices):
+    """Класс, перечисляющий состояния объявления в его жизненном цикле"""
+
+    ACTIVE = "ACTIVE", "Действующее"
+    ARCHIVED = "ARCHIVED", "Архивное"
+
+
 class TsTzRange(models.Func):
     """Класс, склеивающий начало и конец брони в один отрезок времени PostgreSQL"""
 
@@ -73,6 +80,9 @@ class Resource(BaseModel):
         null=True,
         blank=True,
         related_name="resources",
+    )
+    status = models.CharField(
+        max_length=16, choices=ResourceStatus.choices, default=ResourceStatus.ACTIVE
     )
     manager = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -134,6 +144,9 @@ class Resource(BaseModel):
                     )
                 ),
                 name="resource_moderation_details_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=ResourceStatus.values), name="resource_status_valid"
             ),
         ]
 
