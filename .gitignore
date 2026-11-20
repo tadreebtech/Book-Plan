@@ -114,7 +114,6 @@ dmypy.json
 .pytype/
 
 # Linters
-.ruff_cache/
 
 # Cython
 cython_debug/
@@ -154,3 +153,14 @@ coverage/
 
 # VSCode history
 .history/*
+
+# AI agents (instructions stay local)
+.claude/
+AGENTS.md
+CLAUDE.md
+CLAUDE.local.md
+.codex/
+.cursor/
+.gemini/
+GEMINI.md
+.mcp.json
