@@ -3,11 +3,17 @@ from datetime import datetime
 from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.utils import timezone
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied
 
-from apps.accounts.models import User
+from apps.accounts.models import Role, User
 from apps.bookings.exceptions import BookingConflict, BookingValidationError, ResourceUnavailable
-from apps.bookings.models import Booking, BookingStatus, Resource
+from apps.bookings.models import (
+    Booking,
+    BookingStatus,
+    Resource,
+    ResourceActivationAction,
+    ResourceActivationLog,
+)
 
 
 def _is_overlap_constraint_error(exc: IntegrityError) -> bool:
@@ -102,3 +108,45 @@ def cancel_booking(*, user: User, booking_id: int) -> Booking:
         booking.status = BookingStatus.CANCELLED
         booking.save(update_fields=["status", "updated_at"])
         return booking
+
+
+def _resource_set_active(*, actor: User, resource_id: int, is_active: bool) -> Resource:
+    """Функция, атомарно меняющая активность ресурса и записывающая действие в журнал
+
+    Брони ресурса не меняются: подтверждённые брони остаются в силе после деактивации
+    """
+
+    if not actor.is_active or actor.role != Role.ADMIN:
+        raise PermissionDenied()
+
+    with transaction.atomic():
+        resource = Resource.objects.select_for_update().get(pk=resource_id)
+        if resource.is_active != is_active:
+            resource.is_active = is_active
+            resource.save(update_fields=["is_active", "updated_at"])
+
+            activation_log = ResourceActivationLog(
+                resource_id=resource.pk,
+                actor=actor,
+                action=(
+                    ResourceActivationAction.ACTIVATED
+                    if is_active
+                    else ResourceActivationAction.DEACTIVATED
+                ),
+            )
+            activation_log.full_clean()
+            activation_log.save()
+
+        return resource
+
+
+def resource_activate(*, actor: User, resource_id: int) -> Resource:
+    """Функция, делающая ресурс доступным по запросу администратора"""
+
+    return _resource_set_active(actor=actor, resource_id=resource_id, is_active=True)
+
+
+def resource_deactivate(*, actor: User, resource_id: int) -> Resource:
+    """Функция, снимающая ресурс с публикации по запросу администратора"""
+
+    return _resource_set_active(actor=actor, resource_id=resource_id, is_active=False)

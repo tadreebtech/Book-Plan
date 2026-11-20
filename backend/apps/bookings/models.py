@@ -149,3 +149,32 @@ class Booking(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.resource} {self.start_at:%Y-%m-%d %H:%M}"
+
+
+class ResourceActivationAction(models.TextChoices):
+    """Класс, перечисляющий действия администратора над активностью ресурса"""
+
+    ACTIVATED = "ACTIVATED", "Ресурс активирован"
+    DEACTIVATED = "DEACTIVATED", "Ресурс деактивирован"
+
+
+class ResourceActivationLog(BaseModel):
+    """Класс, сохраняющий автора, действие, ресурс и время изменения активности ресурса"""
+
+    resource_id = models.PositiveBigIntegerField(db_index=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="resource_activation_actions",
+    )
+    action = models.CharField(max_length=16, choices=ResourceActivationAction.choices)
+
+    class Meta:
+        """Класс, ограничивающий допустимые действия в журнале активности ресурсов"""
+
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(action__in=ResourceActivationAction.values),
+                name="resource_activation_action_valid",
+            ),
+        ]
