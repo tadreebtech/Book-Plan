@@ -16,6 +16,13 @@ class ResourceKind(models.TextChoices):
     HOTEL_ROOM = "HOTEL_ROOM", "Номер отеля"
 
 
+class ModerationStatus(models.TextChoices):
+    PENDING = "PENDING", "На модерации"
+    APPROVED = "APPROVED", "Одобрено"
+    REJECTED = "REJECTED", "Отклонено"
+    HIDDEN = "HIDDEN", "Скрыто"
+
+
 class BookingStatus(models.TextChoices):
     """Класс, перечисляющий состояния брони: действует, отменена, завершена"""
 
@@ -46,6 +53,19 @@ class Resource(BaseModel):
         related_name="managed_resources",
         limit_choices_to={"role": Role.MANAGER},
     )
+    moderation_status = models.CharField(
+        max_length=16, choices=ModerationStatus.choices, default=ModerationStatus.PENDING
+    )
+    rejection_reason = models.TextField(blank=True, default="")
+    moderated_at = models.DateTimeField(null=True, blank=True)
+    moderated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="moderated_resources",
+        limit_choices_to={"role": Role.ADMIN},
+    )
 
     class Meta:
         """Класс, задающий правила таблицы ресурсов, которые проверяет сама база данных"""
@@ -55,6 +75,37 @@ class Resource(BaseModel):
                 condition=Q(kind__in=ResourceKind.values), name="resource_kind_valid"
             ),
             models.CheckConstraint(condition=Q(capacity__gte=1), name="resource_capacity_gte_1"),
+            models.CheckConstraint(
+                condition=Q(moderation_status__in=ModerationStatus.values),
+                name="resource_moderation_status_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(moderation_status=ModerationStatus.REJECTED, rejection_reason__regex=r"\S")
+                    | (~Q(moderation_status=ModerationStatus.REJECTED) & Q(rejection_reason=""))
+                ),
+                name="resource_rejection_reason_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        moderation_status=ModerationStatus.PENDING,
+                        moderated_at__isnull=True,
+                        moderated_by__isnull=True,
+                    )
+                    | (
+                        ~Q(moderation_status=ModerationStatus.PENDING)
+                        & Q(moderated_at__isnull=False, moderated_by__isnull=False)
+                    )
+                    # Existing and automatically approved listings may have no moderator.
+                    | Q(
+                        moderation_status__in=[ModerationStatus.APPROVED, ModerationStatus.HIDDEN],
+                        moderated_at__isnull=True,
+                        moderated_by__isnull=True,
+                    )
+                ),
+                name="resource_moderation_details_valid",
+            ),
         ]
 
     def __str__(self) -> str:
