@@ -107,6 +107,10 @@ def test_basic_authentication_rejects_blocked_user_without_revealing_status(
         assert response.status_code == 403
         assert response.data == UNAUTHORIZED_RESPONSE
 
+    response = admin_client.post(reverse("admin-user-unblock", args=[target_user.pk]))
+    assert response.status_code == 200
+    assert client.get(bookings_url, HTTP_AUTHORIZATION=valid_auth).status_code == 200
+
 
 def test_block_creates_audit_record(
     admin_client: APIClient, admin_user: User, target_user: User
