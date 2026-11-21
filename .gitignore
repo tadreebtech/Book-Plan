@@ -154,3 +154,6 @@ coverage/
 
 # VSCode history
 .history/*
+
+# Secrets
+.token

@@ -8,6 +8,7 @@
     "build": "vite build",
     "test": "vitest run",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,css}\" \"index.html\" \"package.json\" \"vite.config.js\" \"eslint.config.js\"",
     "preview": "vite preview"
   },
