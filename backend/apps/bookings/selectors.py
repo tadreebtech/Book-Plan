@@ -1,6 +1,6 @@
 from django.db.models import Q, QuerySet
 
-from apps.bookings.models import Category, Resource
+from apps.bookings.models import Category, Reference, Resource
 
 
 def resource_list(
@@ -52,3 +52,18 @@ def category_get(*, category_id: int) -> Category | None:
     """Функция, возвращающая категорию по идентификатору"""
 
     return Category.objects.filter(pk=category_id).first()
+
+
+def reference_list(
+    *, reference_type: str | None = None, page: int = 1, page_size: int = 20
+) -> tuple[int, QuerySet[Reference]]:
+    """Функция, возвращающая количество значений справочника и выбранную страницу"""
+
+    references = Reference.objects.order_by("type", "value", "pk")
+    if reference_type is not None:
+        references = references.filter(type=reference_type)
+    count = references.count()
+    start = (page - 1) * page_size
+    if start >= count:
+        return count, references.none()
+    return count, references[start : start + page_size]

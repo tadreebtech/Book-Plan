@@ -10,9 +10,17 @@ from apps.bookings.exceptions import (
     BookingConflict,
     BookingValidationError,
     CategoryInUse,
+    ReferenceInUse,
     ResourceUnavailable,
 )
-from apps.bookings.models import Booking, BookingStatus, Category, Resource, ResourceStatus
+from apps.bookings.models import (
+    Booking,
+    BookingStatus,
+    Category,
+    Reference,
+    Resource,
+    ResourceStatus,
+)
 
 
 def _is_overlap_constraint_error(exc: IntegrityError) -> bool:
@@ -163,3 +171,46 @@ def category_delete(*, category_id: int) -> None:
             "Deactivate it with is_active=false."
         )
     category.delete()
+
+
+def reference_create(*, reference_type: str, value: str, is_active: bool = True) -> Reference:
+    """Функция, создающая значение указанного справочника"""
+
+    reference = Reference(type=reference_type, value=value, is_active=is_active)
+    reference.full_clean()
+    reference.save()
+    return reference
+
+
+@transaction.atomic
+def reference_update(*, reference_id: int, **fields: object) -> Reference:
+    """Функция, изменяющая переданные свойства значения справочника"""
+
+    try:
+        reference = Reference.objects.select_for_update().get(pk=reference_id)
+    except Reference.DoesNotExist as exc:
+        raise NotFound() from exc
+    if "reference_type" in fields:
+        reference.type = fields["reference_type"]
+    for field in ("value", "is_active"):
+        if field in fields:
+            setattr(reference, field, fields[field])
+    reference.full_clean()
+    reference.save()
+    return reference
+
+
+@transaction.atomic
+def reference_delete(*, reference_id: int) -> None:
+    """Функция, удаляющая значение справочника при отсутствии связей с ресурсами"""
+
+    try:
+        reference = Reference.objects.select_for_update().get(pk=reference_id)
+    except Reference.DoesNotExist as exc:
+        raise NotFound() from exc
+    count = reference.resources.count()
+    if count:
+        raise ReferenceInUse(
+            f"Reference is used by {count} listing(s). Deactivate it with is_active=false."
+        )
+    reference.delete()
