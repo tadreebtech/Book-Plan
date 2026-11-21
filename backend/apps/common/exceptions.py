@@ -1,6 +1,7 @@
 import logging
 
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404
 from rest_framework.exceptions import (
     APIException,
@@ -19,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 def api_exception_handler(exc: Exception, context: dict) -> Response | None:
     """Функция, приводящая ошибки API к единому формату ответа"""
+
+    if isinstance(exc, DjangoValidationError):
+        exc = ValidationError(exc.message_dict if hasattr(exc, "error_dict") else exc.messages)
 
     response = exception_handler(exc, context)
     if response is None:

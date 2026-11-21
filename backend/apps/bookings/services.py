@@ -3,11 +3,16 @@ from datetime import datetime
 from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.utils import timezone
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.accounts.models import User
-from apps.bookings.exceptions import BookingConflict, BookingValidationError, ResourceUnavailable
-from apps.bookings.models import Booking, BookingStatus, Resource
+from apps.bookings.exceptions import (
+    BookingConflict,
+    BookingValidationError,
+    CategoryInUse,
+    ResourceUnavailable,
+)
+from apps.bookings.models import Booking, BookingStatus, Category, Resource
 
 
 def _is_overlap_constraint_error(exc: IntegrityError) -> bool:
@@ -102,3 +107,58 @@ def cancel_booking(*, user: User, booking_id: int) -> Booking:
         booking.status = BookingStatus.CANCELLED
         booking.save(update_fields=["status", "updated_at"])
         return booking
+
+
+def _category_save(*, category: Category) -> Category:
+    """Функция, сохраняющая категорию и обрабатывающая одновременное создание одинаковых slug"""
+
+    try:
+        with transaction.atomic():
+            category.full_clean()
+            category.save()
+    except IntegrityError as exc:
+        constraint = getattr(getattr(exc.__cause__, "diag", None), "constraint_name", None)
+        if constraint == f"{Category._meta.db_table}_slug_key":
+            raise ValidationError({"slug": ["A category with this slug already exists."]}) from exc
+        raise
+    return category
+
+
+def category_create(
+    *, name: str, slug: str, description: str = "", is_active: bool = True
+) -> Category:
+    """Функция, создающая категорию с уникальным slug"""
+
+    return _category_save(
+        category=Category(name=name, slug=slug, description=description, is_active=is_active)
+    )
+
+
+@transaction.atomic
+def category_update(*, category_id: int, **fields: object) -> Category:
+    """Функция, изменяющая переданные свойства категории"""
+
+    try:
+        category = Category.objects.select_for_update().get(pk=category_id)
+    except Category.DoesNotExist as exc:
+        raise NotFound() from exc
+    for field in ("name", "slug", "description", "is_active"):
+        if field in fields:
+            setattr(category, field, fields[field])
+    return _category_save(category=category)
+
+
+@transaction.atomic
+def category_delete(*, category_id: int) -> None:
+    """Функция, удаляющая категорию при отсутствии активных объявлений"""
+
+    try:
+        category = Category.objects.select_for_update().get(pk=category_id)
+    except Category.DoesNotExist as exc:
+        raise NotFound() from exc
+    count = category.resources.filter(is_active=True).count()
+    if count:
+        raise CategoryInUse(
+            f"Category is used by {count} active listing(s). Deactivate it with is_active=false."
+        )
+    category.delete()

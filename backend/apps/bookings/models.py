@@ -38,6 +38,28 @@ class TsTzRange(models.Func):
     output_field = DateTimeRangeField()
 
 
+class Category(BaseModel):
+    """Класс, описывающий категорию объявлений"""
+
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, unique=True)
+    description = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        """Класс, задающий ограничения и порядок категорий"""
+
+        ordering = ("name", "pk")
+        constraints = [
+            models.CheckConstraint(condition=Q(name__regex=r"\S"), name="category_name_not_blank"),
+        ]
+
+    def __str__(self) -> str:
+        """Метод, возвращающий название категории"""
+
+        return self.name
+
+
 class Resource(BaseModel):
     """Класс, описывающий ресурс для бронирования: аудиторию, столик или номер"""
 
@@ -45,6 +67,13 @@ class Resource(BaseModel):
     name = models.CharField(max_length=255)
     capacity = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resources",
+    )
     manager = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

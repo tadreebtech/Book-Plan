@@ -1,5 +1,6 @@
 import pytest
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404
 from rest_framework.exceptions import (
     AuthenticationFailed,
@@ -25,6 +26,8 @@ from apps.common.exceptions import api_exception_handler
         (MethodNotAllowed("POST"), "METHOD_NOT_ALLOWED", 405),
         (Http404(), "NOT_FOUND", 404),
         (DjangoPermissionDenied(), "ACCESS_DENIED", 403),
+        (DjangoValidationError({"slug": ["Already exists."]}), "VALIDATION_ERROR", 400),
+        (DjangoValidationError("Invalid model."), "VALIDATION_ERROR", 400),
     ],
 )
 def test_api_exception_handler_assigns_meaningful_codes(

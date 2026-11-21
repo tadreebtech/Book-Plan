@@ -1,6 +1,6 @@
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 
-from apps.bookings.models import Resource
+from apps.bookings.models import Category, Resource
 
 
 def resource_list(
@@ -29,3 +29,26 @@ def resource_list(
     if start >= count:
         return count, resources.none()
     return count, resources[start : start + page_size]
+
+
+def category_list(
+    *, search: str = "", page: int = 1, page_size: int = 20
+) -> tuple[int, QuerySet[Category]]:
+    """Функция, возвращающая количество найденных категорий и выбранную страницу"""
+
+    categories = Category.objects.order_by("name", "pk")
+    if search:
+        categories = categories.filter(
+            Q(name__icontains=search) | Q(slug__icontains=search) | Q(description__icontains=search)
+        )
+    count = categories.count()
+    start = (page - 1) * page_size
+    if start >= count:
+        return count, categories.none()
+    return count, categories[start : start + page_size]
+
+
+def category_get(*, category_id: int) -> Category | None:
+    """Функция, возвращающая категорию по идентификатору"""
+
+    return Category.objects.filter(pk=category_id).first()
