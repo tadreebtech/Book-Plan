@@ -12,7 +12,7 @@ from apps.bookings.exceptions import (
     CategoryInUse,
     ResourceUnavailable,
 )
-from apps.bookings.models import Booking, BookingStatus, Category, Resource
+from apps.bookings.models import Booking, BookingStatus, Category, Resource, ResourceStatus
 
 
 def _is_overlap_constraint_error(exc: IntegrityError) -> bool:
@@ -44,7 +44,7 @@ def create_booking(
             except Resource.DoesNotExist as exc:
                 raise NotFound("Resource not found.") from exc
 
-            if not locked_resource.is_active:
+            if not locked_resource.is_active or locked_resource.status == ResourceStatus.ARCHIVED:
                 raise ResourceUnavailable("Resource is unavailable.")
 
             if guests > locked_resource.capacity:
@@ -150,15 +150,16 @@ def category_update(*, category_id: int, **fields: object) -> Category:
 
 @transaction.atomic
 def category_delete(*, category_id: int) -> None:
-    """Функция, удаляющая категорию при отсутствии активных объявлений"""
+    """Функция, удаляющая категорию при отсутствии неархивных объявлений"""
 
     try:
         category = Category.objects.select_for_update().get(pk=category_id)
     except Category.DoesNotExist as exc:
         raise NotFound() from exc
-    count = category.resources.filter(is_active=True).count()
+    count = category.resources.exclude(status=ResourceStatus.ARCHIVED).count()
     if count:
         raise CategoryInUse(
-            f"Category is used by {count} active listing(s). Deactivate it with is_active=false."
+            f"Category is used by {count} non-archived listing(s). "
+            "Deactivate it with is_active=false."
         )
     category.delete()
