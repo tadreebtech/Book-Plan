@@ -1,0 +1,28 @@
+/**
+ * Status pill colors.
+ * Tones: --ok (подтверждено), --wait (ожидает ответа), --sent (запрос отправлен).
+ */
+
+.pill {
+  flex: none;
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pill--ok {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.pill--wait {
+  background: var(--wait-bg);
+  color: var(--wait-text);
+}
+
+.pill--sent {
+  background: var(--sent-bg);
+  color: var(--sent-text);
+}

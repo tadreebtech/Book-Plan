@@ -1,0 +1,40 @@
+/**
+ * How-it-works styles: 3 equal columns, each with a hairline on top.
+ */
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+
+.step {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-strong);
+}
+
+.step h3 {
+  margin-top: 14px;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.step p:not(.label) {
+  margin-top: 8px;
+  max-width: 32ch;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+@media (max-width: 1024px) {
+  .steps {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+
+  .step p:not(.label) {
+    max-width: 48ch;
+  }
+}
