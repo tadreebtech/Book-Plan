@@ -9,6 +9,7 @@ from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsAdminRole
 from apps.accounts.selectors import user_get, user_get_display_name, user_list
 from apps.accounts.services import user_block, user_role_change, user_unblock
+from apps.common.pagination import PaginationInputSerializer, paginated_response_data
 
 
 def role_parse(value: str) -> str:
@@ -20,8 +21,6 @@ def role_parse(value: str) -> str:
     if role not in Role.values:
         raise serializers.ValidationError("Unknown user role.")
     return role
-from apps.accounts.services import user_block, user_unblock
-from apps.common.pagination import PaginationInputSerializer, paginated_response_data
 
 
 class UserListApi(APIView):
