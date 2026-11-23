@@ -32,3 +32,15 @@ def user_list(
 
     secondary_ordering = "-id" if ordering.startswith("-") else "id"
     return users.order_by(ordering, secondary_ordering)
+
+
+def user_get(*, user_id: int) -> User | None:
+    """Функция, получающая пользователя по идентификатору при его наличии"""
+
+    return User.objects.filter(pk=user_id).first()
+
+
+def user_get_display_name(*, user: User) -> str:
+    """Функция, возвращающая полное имя пользователя или его логин"""
+
+    return user.get_full_name().strip() or user.username
