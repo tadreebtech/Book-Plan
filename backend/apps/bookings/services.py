@@ -3,11 +3,17 @@ from datetime import datetime
 from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.utils import timezone
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
-from apps.accounts.models import User
+from apps.accounts.models import Role, User
 from apps.bookings.exceptions import BookingConflict, BookingValidationError, ResourceUnavailable
-from apps.bookings.models import Booking, BookingStatus, Resource
+from apps.bookings.models import (
+    Booking,
+    BookingStatus,
+    ModerationStatus,
+    Resource,
+    ResourceModerationLog,
+)
 
 
 def _is_overlap_constraint_error(exc: IntegrityError) -> bool:
@@ -102,3 +108,80 @@ def cancel_booking(*, user: User, booking_id: int) -> Booking:
         booking.status = BookingStatus.CANCELLED
         booking.save(update_fields=["status", "updated_at"])
         return booking
+
+
+def _resource_moderate(
+    *,
+    actor: User,
+    resource_id: int,
+    moderation_status: ModerationStatus,
+    rejection_reason: str = "",
+) -> Resource:
+    """Функция, атомарно сохраняющая решение модератора и запись аудита"""
+
+    if not actor.is_active or actor.role != Role.ADMIN:
+        raise PermissionDenied()
+
+    with transaction.atomic():
+        try:
+            resource = Resource.objects.select_for_update().get(pk=resource_id)
+        except Resource.DoesNotExist as exc:
+            raise NotFound() from exc
+
+        previous_status = resource.moderation_status
+        resource.moderation_status = moderation_status
+        resource.rejection_reason = rejection_reason
+        resource.moderated_at = timezone.now()
+        resource.moderated_by = actor
+        resource.full_clean(exclude=["manager"])
+        resource.save(
+            update_fields=[
+                "moderation_status",
+                "rejection_reason",
+                "moderated_at",
+                "moderated_by",
+                "updated_at",
+            ]
+        )
+        audit_log = ResourceModerationLog(
+            resource_id=resource.pk,
+            actor=actor,
+            previous_status=previous_status,
+            moderation_status=moderation_status,
+            rejection_reason=rejection_reason,
+            created_at=resource.moderated_at,
+        )
+        audit_log.full_clean()
+        audit_log.save()
+        return resource
+
+
+def resource_approve(*, actor: User, resource_id: int) -> Resource:
+    """Функция, одобряющая объявление по решению администратора"""
+
+    return _resource_moderate(
+        actor=actor, resource_id=resource_id, moderation_status=ModerationStatus.APPROVED
+    )
+
+
+def resource_reject(*, actor: User, resource_id: int, rejection_reason: str) -> Resource:
+    """Функция, отклоняющая объявление с указанием причины"""
+
+    rejection_reason = rejection_reason.strip()
+    if not rejection_reason:
+        raise ValidationError({"rejection_reason": ["This field may not be blank."]})
+
+    return _resource_moderate(
+        actor=actor,
+        resource_id=resource_id,
+        moderation_status=ModerationStatus.REJECTED,
+        rejection_reason=rejection_reason,
+    )
+
+
+def resource_hide(*, actor: User, resource_id: int) -> Resource:
+    """Функция, скрывающая объявление по решению администратора"""
+
+    return _resource_moderate(
+        actor=actor, resource_id=resource_id, moderation_status=ModerationStatus.HIDDEN
+    )
