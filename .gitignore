@@ -154,6 +154,9 @@ coverage/
 # VSCode history
 .history/*
 
+# Secrets
+.token
+
 # AI agents (instructions stay local)
 .claude/
 AGENTS.md
