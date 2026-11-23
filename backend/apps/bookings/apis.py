@@ -17,6 +17,7 @@ from apps.common.pagination import MAX_DB_ID, PaginationInputSerializer, paginat
 from apps.bookings.models import Resource
 from apps.bookings.services import resource_approve, resource_hide, resource_reject
 
+
 class BookingPersonSerializer(serializers.Serializer):
     """Класс, представляющий клиента брони или менеджера ресурса"""
 

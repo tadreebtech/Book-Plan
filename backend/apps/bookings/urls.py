@@ -3,8 +3,11 @@ from rest_framework.routers import SimpleRouter
 
 from apps.bookings.activation_apis import AdminListingActivateApi, AdminListingDeactivateApi
 from apps.bookings.apis import (
-    BookingDetailApi, BookingListApi,
-    AdminListingApproveApi, AdminListingHideApi, AdminListingRejectApi,
+    BookingDetailApi,
+    BookingListApi,
+    AdminListingApproveApi,
+    AdminListingHideApi,
+    AdminListingRejectApi,
 )
 from apps.bookings.views import AdminListingListApi, BookingViewSet
 
