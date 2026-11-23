@@ -13,6 +13,8 @@ from apps.bookings.models import (
     ModerationStatus,
     Resource,
     ResourceModerationLog,
+    ResourceActivationAction,
+    ResourceActivationLog,
 )
 
 
@@ -185,3 +187,45 @@ def resource_hide(*, actor: User, resource_id: int) -> Resource:
     return _resource_moderate(
         actor=actor, resource_id=resource_id, moderation_status=ModerationStatus.HIDDEN
     )
+
+
+def _resource_set_active(*, actor: User, resource_id: int, is_active: bool) -> Resource:
+    """Функция, атомарно меняющая активность ресурса и записывающая действие в журнал
+
+    Брони ресурса не меняются: подтверждённые брони остаются в силе после деактивации
+    """
+
+    if not actor.is_active or actor.role != Role.ADMIN:
+        raise PermissionDenied()
+
+    with transaction.atomic():
+        resource = Resource.objects.select_for_update().get(pk=resource_id)
+        if resource.is_active != is_active:
+            resource.is_active = is_active
+            resource.save(update_fields=["is_active", "updated_at"])
+
+            activation_log = ResourceActivationLog(
+                resource_id=resource.pk,
+                actor=actor,
+                action=(
+                    ResourceActivationAction.ACTIVATED
+                    if is_active
+                    else ResourceActivationAction.DEACTIVATED
+                ),
+            )
+            activation_log.full_clean()
+            activation_log.save()
+
+        return resource
+
+
+def resource_activate(*, actor: User, resource_id: int) -> Resource:
+    """Функция, делающая ресурс доступным по запросу администратора"""
+
+    return _resource_set_active(actor=actor, resource_id=resource_id, is_active=True)
+
+
+def resource_deactivate(*, actor: User, resource_id: int) -> Resource:
+    """Функция, снимающая ресурс с публикации по запросу администратора"""
+
+    return _resource_set_active(actor=actor, resource_id=resource_id, is_active=False)
