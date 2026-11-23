@@ -20,6 +20,8 @@ def role_parse(value: str) -> str:
     if role not in Role.values:
         raise serializers.ValidationError("Unknown user role.")
     return role
+from apps.accounts.services import user_block, user_unblock
+from apps.common.pagination import PaginationInputSerializer, paginated_response_data
 
 
 class UserListApi(APIView):
@@ -27,11 +29,9 @@ class UserListApi(APIView):
 
     permission_classes = [IsAuthenticated, IsAdminRole]
 
-    class InputSerializer(serializers.Serializer):
+    class InputSerializer(PaginationInputSerializer):
         """Класс, проверяющий параметры поиска, фильтрации и пагинации пользователей"""
 
-        page = serializers.IntegerField(min_value=1, default=1)
-        page_size = serializers.IntegerField(min_value=1, max_value=100, default=20)
         search = serializers.CharField(required=False, allow_blank=True, max_length=150, default="")
         role = serializers.CharField(required=False)
         is_active = serializers.BooleanField(required=False)
@@ -73,17 +73,14 @@ class UserListApi(APIView):
             is_active=params.get("is_active"),
             ordering=params["ordering"],
         )
-        count = users.count()
-        page = params["page"]
-        page_size = params["page_size"]
-        start = (page - 1) * page_size
-        results = (
-            self.OutputSerializer(users[start : start + page_size], many=True).data
-            if start < count
-            else []
+        return Response(
+            paginated_response_data(
+                queryset=users,
+                serializer_class=self.OutputSerializer,
+                page=params["page"],
+                page_size=params["page_size"],
+            )
         )
-
-        return Response({"count": count, "page": page, "page_size": page_size, "results": results})
 
 
 class UserDetailApi(APIView):
