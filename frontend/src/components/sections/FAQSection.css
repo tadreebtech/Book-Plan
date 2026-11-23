@@ -1,0 +1,156 @@
+/**
+ * FAQ section styles — accordion cards.
+ * Left column: eyebrow + heading + supporting text.
+ * Right column: accordion cards.
+ * Matches the landing page design tokens and responsive breakpoints.
+ */
+
+.faq__header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: start;
+}
+
+/* Left column: heading block */
+
+.faq__head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.faq__head .eyebrow {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.faq__head h2 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.faq__lead {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 42ch;
+}
+
+/* Right column: accordion cards */
+
+.faqs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.faq {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.faq--open {
+  background: var(--green-soft);
+  border-color: var(--green);
+}
+
+.faq__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.faq__trigger:hover {
+  color: var(--green-dark);
+}
+
+.faq__question {
+  flex: 1;
+}
+
+.faq__icon {
+  flex: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.faq__answer {
+  padding: 0 20px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ---- Tablet ---- */
+
+@media (max-width: 1024px) {
+  .faq__header {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .faq__head h2 {
+    font-size: 28px;
+  }
+
+  .faq__trigger {
+    padding: 14px 18px;
+    font-size: 13.5px;
+  }
+
+  .faq__answer {
+    font-size: 12.5px;
+  }
+}
+
+/* ---- Mobile ---- */
+
+@media (max-width: 640px) {
+  .faq__header {
+    gap: 16px;
+  }
+
+  .faq__head h2 {
+    font-size: 24px;
+  }
+
+  .faq__lead {
+    max-width: 100%;
+    font-size: 14px;
+  }
+
+  .faq__trigger {
+    padding: 13px 16px;
+    font-size: 13px;
+  }
+
+  .faq__answer {
+    padding: 0 16px 14px;
+    font-size: 12.5px;
+  }
+}
