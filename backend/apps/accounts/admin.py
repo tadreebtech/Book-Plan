@@ -23,15 +23,12 @@ class BookPlanUserAdmin(UserAdmin):
             super().save_model(request, obj, form, change)
             return
 
-        new_role = obj.role
-        obj.role = form.initial["role"]
-        super().save_model(request, obj, form, change)
         try:
-            user_role_change(actor=request.user, user_id=obj.pk, role=new_role)
+            user_role_change(actor=request.user, user_id=obj.pk, role=obj.role)
         except APIException as exc:
-            self.message_user(request, f"Роль не изменена: {exc.detail}", messages.ERROR)
-        else:
-            obj.role = new_role
+            self.message_user(request, f"Изменения не сохранены: {exc.detail}", messages.ERROR)
+            return
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(AuditLog)
