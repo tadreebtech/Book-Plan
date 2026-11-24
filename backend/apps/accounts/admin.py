@@ -1,10 +1,11 @@
-from django.contrib import admin, messages
+from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.core.exceptions import PermissionDenied
 from django.forms import ModelForm
 from django.http import HttpRequest
 from rest_framework.exceptions import APIException
 
-from apps.accounts.models import AuditLog, User
+from apps.accounts.models import AuditLog, Role, User
 from apps.accounts.services import user_role_change
 
 
@@ -16,18 +17,23 @@ class BookPlanUserAdmin(UserAdmin):
     list_display = ("username", "email", "first_name", "last_name", "is_staff", "role")
     list_filter = ("is_staff", "is_superuser", "is_active", "groups", "role")
 
+    def get_readonly_fields(self, request: HttpRequest, obj: User | None = None) -> list[str]:
+        """Метод, запрещающий править роль не-администратору и администратору у самого себя"""
+
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        user = request.user
+        if obj and (user.role != Role.ADMIN or not user.is_active or obj.pk == user.pk):
+            readonly_fields.append("role")
+        return readonly_fields
+
     def save_model(self, request: HttpRequest, obj: User, form: ModelForm, change: bool) -> None:
         """Метод, сохраняющий пользователя и меняющий его роль через сервис с записью в аудит"""
 
-        if not (change and "role" in form.changed_data):
-            super().save_model(request, obj, form, change)
-            return
-
-        try:
-            user_role_change(actor=request.user, user_id=obj.pk, role=obj.role)
-        except APIException as exc:
-            self.message_user(request, f"Изменения не сохранены: {exc.detail}", messages.ERROR)
-            return
+        if change and "role" in form.changed_data:
+            try:
+                user_role_change(actor=request.user, user_id=obj.pk, role=obj.role)
+            except APIException as exc:
+                raise PermissionDenied(str(exc.detail)) from exc
         super().save_model(request, obj, form, change)
 
 
