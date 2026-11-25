@@ -1,0 +1,57 @@
+{
+  "commit": "fd44f1ae2d039df19776350f842010a980f50f0d",
+  "date": "2026-11-24",
+  "questions": 12,
+  "placement": "CTA < FAQ < footer",
+  "sizes": [
+    {
+      "width": 320,
+      "docWidth": 320,
+      "answers": 12,
+      "keyboard": "passed"
+    },
+    {
+      "width": 375,
+      "docWidth": 375,
+      "answers": 12,
+      "keyboard": "passed"
+    },
+    {
+      "width": 390,
+      "docWidth": 390,
+      "answers": 12,
+      "keyboard": "passed"
+    },
+    {
+      "width": 768,
+      "docWidth": 768,
+      "answers": 12,
+      "keyboard": "passed"
+    },
+    {
+      "width": 1024,
+      "docWidth": 1024,
+      "answers": 12,
+      "keyboard": "passed"
+    },
+    {
+      "width": 1366,
+      "docWidth": 1366,
+      "answers": 12,
+      "keyboard": "passed"
+    },
+    {
+      "width": 1440,
+      "docWidth": 1440,
+      "answers": 12,
+      "keyboard": "passed"
+    },
+    {
+      "width": 1920,
+      "docWidth": 1920,
+      "answers": 12,
+      "keyboard": "passed"
+    }
+  ],
+  "errors": []
+}
