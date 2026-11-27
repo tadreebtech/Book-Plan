@@ -1,0 +1,40 @@
+/**
+ * Logo styles.
+ * `--sm` is used in the footer, the default size in the header.
+ */
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.logo__mark {
+  width: 30px;
+  height: 34px;
+  flex: none;
+}
+
+.logo--sm {
+  font-size: 15px;
+}
+
+.logo--sm .logo__mark {
+  width: 24px;
+  height: 27px;
+}
+
+@media (max-width: 640px) {
+  .logo {
+    font-size: 17px;
+  }
+
+  .logo__mark {
+    width: 24px;
+    height: 27px;
+  }
+}

@@ -8,7 +8,19 @@ from rest_framework.views import APIView
 from apps.accounts.models import Role, User
 from apps.accounts.permissions import IsAdminRole
 from apps.accounts.selectors import user_get, user_get_display_name, user_list
-from apps.accounts.services import user_block, user_unblock
+from apps.accounts.services import user_block, user_role_change, user_unblock
+from apps.common.pagination import PaginationInputSerializer, paginated_response_data
+
+
+def role_parse(value: str) -> str:
+    """Функция, приводящая название роли из запроса к значению, хранимому в базе данных"""
+
+    role = value.upper()
+    if role == "PROVIDER":
+        role = Role.MANAGER
+    if role not in Role.values:
+        raise serializers.ValidationError("Unknown user role.")
+    return role
 
 
 class UserListApi(APIView):
@@ -16,11 +28,9 @@ class UserListApi(APIView):
 
     permission_classes = [IsAuthenticated, IsAdminRole]
 
-    class InputSerializer(serializers.Serializer):
+    class InputSerializer(PaginationInputSerializer):
         """Класс, проверяющий параметры поиска, фильтрации и пагинации пользователей"""
 
-        page = serializers.IntegerField(min_value=1, default=1)
-        page_size = serializers.IntegerField(min_value=1, max_value=100, default=20)
         search = serializers.CharField(required=False, allow_blank=True, max_length=150, default="")
         role = serializers.CharField(required=False)
         is_active = serializers.BooleanField(required=False)
@@ -32,12 +42,7 @@ class UserListApi(APIView):
         def validate_role(self, value: str) -> str:
             """Метод, приводящий название роли к значению, используемому в базе данных"""
 
-            role = value.upper()
-            if role == "PROVIDER":
-                role = Role.MANAGER
-            if role not in Role.values:
-                raise serializers.ValidationError("Unknown user role.")
-            return role
+            return role_parse(value)
 
     class OutputSerializer(serializers.Serializer):
         """Класс, представляющий базовые данные пользователя в ответе API"""
@@ -67,17 +72,14 @@ class UserListApi(APIView):
             is_active=params.get("is_active"),
             ordering=params["ordering"],
         )
-        count = users.count()
-        page = params["page"]
-        page_size = params["page_size"]
-        start = (page - 1) * page_size
-        results = (
-            self.OutputSerializer(users[start : start + page_size], many=True).data
-            if start < count
-            else []
+        return Response(
+            paginated_response_data(
+                queryset=users,
+                serializer_class=self.OutputSerializer,
+                page=params["page"],
+                page_size=params["page_size"],
+            )
         )
-
-        return Response({"count": count, "page": page, "page_size": page_size, "results": results})
 
 
 class UserDetailApi(APIView):
@@ -169,6 +171,45 @@ class UserUnblockApi(APIView):
         serializer.is_valid(raise_exception=True)
         try:
             user = user_unblock(actor=request.user, user_id=serializer.validated_data["id"])
+        except User.DoesNotExist as exc:
+            raise NotFound() from exc
+        return Response(self.OutputSerializer(user).data)
+
+
+class UserRoleChangeApi(APIView):
+    """Класс, меняющий роль выбранного пользователя по запросу администратора"""
+
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    class InputSerializer(serializers.Serializer):
+        """Класс, проверяющий идентификатор пользователя и новую роль"""
+
+        id = serializers.IntegerField(min_value=1)
+        role = serializers.CharField()
+
+        def validate_role(self, value: str) -> str:
+            """Метод, приводящий название роли к значению, используемому в базе данных"""
+
+            return role_parse(value)
+
+    class OutputSerializer(serializers.Serializer):
+        """Класс, представляющий пользователя и его роль после изменения"""
+
+        id = serializers.IntegerField()
+        role = serializers.CharField()
+
+    def patch(self, request: Request, user_id: str) -> Response:
+        """Метод, меняющий роль пользователя и возвращающий его текущую роль"""
+
+        role = request.data.get("role") if isinstance(request.data, dict) else None
+        serializer = self.InputSerializer(data={"id": user_id, "role": role})
+        serializer.is_valid(raise_exception=True)
+        try:
+            user = user_role_change(
+                actor=request.user,
+                user_id=serializer.validated_data["id"],
+                role=serializer.validated_data["role"],
+            )
         except User.DoesNotExist as exc:
             raise NotFound() from exc
         return Response(self.OutputSerializer(user).data)

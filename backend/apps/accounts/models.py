@@ -28,18 +28,21 @@ class User(BaseModel, AbstractUser):
 
 
 class AuditAction(models.TextChoices):
-    """Класс, перечисляющий действия администратора над статусом пользователя"""
+    """Класс, перечисляющий действия администратора над учётной записью пользователя"""
 
+    CHANGE_ROLE = "CHANGE_ROLE", "Роль пользователя изменена"
     USER_BLOCKED = "USER_BLOCKED", "Пользователь заблокирован"
     USER_UNBLOCKED = "USER_UNBLOCKED", "Пользователь разблокирован"
 
 
 class AuditLog(BaseModel):
-    """Класс, сохраняющий автора, действие, пользователя и время изменения статуса"""
+    """Класс, сохраняющий автора, действие, пользователя, время и прежнее и новое значение"""
 
     actor = models.ForeignKey(User, on_delete=models.PROTECT, related_name="status_actions")
     action = models.CharField(max_length=32, choices=AuditAction.choices)
     target = models.ForeignKey(User, on_delete=models.PROTECT, related_name="status_audit_log")
+    old_value = models.CharField(max_length=32, blank=True)
+    new_value = models.CharField(max_length=32, blank=True)
 
     class Meta:
         """Класс, ограничивающий допустимые действия в журнале аудита"""
