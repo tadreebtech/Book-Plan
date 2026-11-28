@@ -178,12 +178,14 @@ jobs:
           docker compose run --rm -T backend python manage.py migrate --noinput
           docker compose up -d --wait --remove-orphans
           sed -i '/^IMAGE_TAG=/d' .env
+          [ -z "$(tail -c1 .env)" ] || echo >> .env
           echo "IMAGE_TAG=$IMAGE_TAG" >> .env
 
       - name: Smoke test
         working-directory: /opt/book-plan
         run: |
-          port="$(docker compose port backend 8000 | cut -d: -f2)"
+          port="$(docker compose port backend 8000)"
+          port="${port##*:}"
           url="http://localhost:$port/admin/login/"
           for _ in $(seq 10); do curl -fsS -o /dev/null "$url" && exit 0; sleep 3; done
           echo "::error::$url is not responding"
