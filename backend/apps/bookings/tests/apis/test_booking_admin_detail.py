@@ -149,10 +149,16 @@ def test_booking_detail_is_read_only(
     table = Resource.objects.create(kind=ResourceKind.RESTAURANT_TABLE, name="Столик", capacity=4)
     booking = _book(resource=table, user=client_user)
 
-    response = getattr(admin_client, method)(reverse("admin-booking-detail", args=[booking.id]))
+    before = list(Booking.objects.order_by("pk").values())
+    response = getattr(admin_client, method)(
+        reverse("admin-booking-detail", args=[booking.id]),
+        {"status": "CANCELLED", "guests": 2},
+        format="json",
+    )
 
     assert response.status_code == 405
-    assert Booking.objects.filter(pk=booking.id).exists()
+    assert response.data["code"] == "METHOD_NOT_ALLOWED"
+    assert list(Booking.objects.order_by("pk").values()) == before
 
 
 @pytest.mark.parametrize("role", [Role.CLIENT, Role.MANAGER])
@@ -181,3 +187,19 @@ def test_booking_detail_rejects_anonymous_user(client_user: User) -> None:
 
     assert response.status_code == 403
     assert response.data["code"] == "UNAUTHORIZED"
+
+
+def test_booking_detail_rejects_inactive_admin(
+    admin_client: APIClient, admin_user: User, client_user: User
+) -> None:
+    """Функция, проверяющая запрет просмотра карточки заблокированному администратору"""
+
+    room = Resource.objects.create(kind=ResourceKind.HOTEL_ROOM, name="Номер", capacity=4)
+    booking = _book(resource=room, user=client_user)
+    admin_user.is_active = False
+    admin_user.save(update_fields=["is_active"])
+
+    response = admin_client.get(reverse("admin-booking-detail", args=[booking.id]))
+
+    assert response.status_code == 403
+    assert response.data["code"] == "ACCESS_DENIED"
