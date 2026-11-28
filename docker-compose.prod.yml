@@ -1,0 +1,26 @@
+name: book-plan
+
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      retries: 10
+
+  backend:
+    image: ghcr.io/tadreebtech/book-plan-backend:${IMAGE_TAG:-dev}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${BOOK_PLAN_PORT:-8090}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
